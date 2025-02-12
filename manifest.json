@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "YouTube Title Modifier",
+    "version": "1.0",
+    "description": "Adds an element below the YouTube video title.",
+    "content_scripts": [
+        {
+            "matches": ["*://www.youtube.com/watch*"],
+            "js": ["content.js"],
+            "run_at": "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["content.html"],
+            "matches": ["<all_urls>"]
+        }
+    ]
+}
