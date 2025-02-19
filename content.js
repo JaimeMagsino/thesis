@@ -7,7 +7,7 @@ function insertBelowTitle() {
     if (document.getElementById("custom-extension-element")) return;
 
     const url = chrome.runtime.getURL("content.html");
-
+    console.log("Attempting to fetch content from:", url);
     fetch(url)
         .then(response => {
             if (!response.ok) {

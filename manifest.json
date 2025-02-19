@@ -13,7 +13,7 @@
     ],
     "web_accessible_resources": [
         {
-            "resources": ["youtube_extension_citation.html", "youtube_extension_style.css"],
+            "resources": ["content.html", "youtube_extension_citation.html", "youtube_extension_style.css"],
             "matches": ["<all_urls>"]
         }
     ],
@@ -22,7 +22,7 @@
         "default_icon": {
             "16": "icon16.png",
             "48": "icon48.png"
-           
+            
         }
     }
 }
