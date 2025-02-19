@@ -10,21 +10,69 @@ function insertBelowTitle() {
     newElement.id = "custom-extension-element";
     newElement.style.cssText = "background-color: #f0f0f0; padding: 10px; margin-top: 5px;";
 
-    // Simplified content for now
+    // Add the "Add Citation" button and a hidden form container
     newElement.innerHTML = `
         <h3>Add a Citation</h3>
         <button id="add-citation-btn">Add Citation</button>
+        <div id="citation-form-container" style="display: none;"></div>
     `;
 
     titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
 
-    // Add listener for the button
-    document.getElementById('add-citation-btn').addEventListener('click', addCitation);
+    // Add listener for the button to load the form inline
+    document.getElementById('add-citation-btn').addEventListener('click', () => {
+        const formContainer = document.getElementById('citation-form-container');
+        if (formContainer.innerHTML === "") {
+            loadCitationForm(formContainer);
+        }
+        formContainer.style.display = formContainer.style.display === "none" ? "block" : "none";
+    });
 }
 
-// Define missing function
-function addCitation() {
-    alert("Add Citation button clicked!");
+// Function to load the form from youtube_extension_citation.html
+function loadCitationForm(container) {
+    const url = chrome.runtime.getURL("youtube_extension_citation.html");
+
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            container.innerHTML = html;
+
+            // Add form behavior (submit, toggle views, etc.)
+            setupFormListeners();
+        })
+        .catch(error => console.error("Error loading citation form:", error));
+}
+
+// Add listeners to the form elements
+function setupFormListeners() {
+    // Form Submission
+    const form = document.getElementById('citation-form');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Citation Submitted!');
+            form.reset();
+        });
+    }
+
+    // Page Navigation (if you have tabs for List View, etc.)
+    const addCitationBtn = document.getElementById('add-citation-btn');
+    const listViewBtn = document.getElementById('list-view-btn');
+
+    if (addCitationBtn) {
+        addCitationBtn.addEventListener('click', () => {
+            document.getElementById('add-citation-page').style.display = 'block';
+            document.getElementById('list-view-page').style.display = 'none';
+        });
+    }
+
+    if (listViewBtn) {
+        listViewBtn.addEventListener('click', () => {
+            document.getElementById('add-citation-page').style.display = 'none';
+            document.getElementById('list-view-page').style.display = 'block';
+        });
+    }
 }
 
 // Debounce function to limit how often insertBelowTitle is called
