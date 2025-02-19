@@ -6,27 +6,25 @@ function insertBelowTitle() {
     // Ensure only one instance is added
     if (document.getElementById("custom-extension-element")) return;
 
-    const url = chrome.runtime.getURL("content.html");
-    console.log("Attempting to fetch content from:", url);
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error("Failed to fetch content.html");
-            }
-            return response.text();
-        })
-        .then(html => {
-            const newElement = document.createElement("div");
-            newElement.id = "custom-extension-element"; // Unique ID
-            newElement.innerHTML = html;
-            newElement.style.cssText = "margin-top: 5px;"; // Custom styling
+    const newElement = document.createElement("div");
+    newElement.id = "custom-extension-element";
+    newElement.style.cssText = "background-color: #f0f0f0; padding: 10px; margin-top: 5px;";
 
-            titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
+    // Simplified content for now
+    newElement.innerHTML = `
+        <h3>Add a Citation</h3>
+        <button id="add-citation-btn">Add Citation</button>
+    `;
 
-            // Disconnect the observer after inserting the element
-            observer.disconnect();
-        })
-        .catch(error => console.error("Error loading content.html:", error));
+    titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
+
+    // Add listener for the button
+    document.getElementById('add-citation-btn').addEventListener('click', addCitation);
+}
+
+// Define missing function
+function addCitation() {
+    alert("Add Citation button clicked!");
 }
 
 // Debounce function to limit how often insertBelowTitle is called
