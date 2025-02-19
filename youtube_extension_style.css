@@ -107,3 +107,47 @@ textarea {
         width: 95%;
     }
 }
+
+
+/* Style for Citation Controls */
+#custom-extension-element {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+#custom-extension-element button {
+    margin-right: 10px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: #0073e6;
+    color: white;
+}
+
+#custom-extension-element button:hover {
+    background-color: #005bb5;
+}
+
+#custom-extension-element h3 {
+    margin-top: 0;
+}
+
+/* Styling for the form and list view containers */
+#citation-form-container,
+#list-view-container {
+    margin-top: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    background-color: #fff;
+}
+
+/* Hide containers by default */
+#citation-form-container,
+#list-view-container {
+    display: none;
+}
