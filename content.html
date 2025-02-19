@@ -1,9 +1,120 @@
-<html>
-<div style="background: yellow; padding: 10px;">
-    This is a custom message below the title!
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Extension</title>
+    <style>
+        /* Main Container */
+        #extension-container {
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            width: 100%;
+            font-family: Arial, sans-serif;
+        }
 
-    30504504    
-</div>
+        /* Citation Box */
+        .citation {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-<h1>Testing</h1>
+        /* Citation Text */
+        .citation-details {
+            flex-grow: 1;
+        }
+
+        /* Upvote/Downvote Buttons */
+        .vote-buttons button {
+            border: none;
+            background-color: transparent;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 5px;
+        }
+
+        .vote-buttons button:hover {
+            color: #0073e6;
+        }
+
+        /* Add Citation Button */
+        #add-citation-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #add-citation-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div id="extension-container">
+        <h3>Video Citations</h3>
+
+        <!-- Sample Citation -->
+        <div class="citation">
+            <div class="citation-details">
+                <strong>Example Citation Title</strong>
+                <p>Source: Example News | Author: John Doe</p>
+            </div>
+            <div class="vote-buttons">
+                <button onclick="upvote(this)">👍</button>
+                <span class="vote-count">0</span>
+                <button onclick="downvote(this)">👎</button>
+            </div>
+        </div>
+
+        <!-- Add Citation Button -->
+        <button id="add-citation-btn" onclick="addCitation()">Add Citation</button>
+    </div>
+
+    <script>
+        // Upvote Function
+        function upvote(btn) {
+            const voteCount = btn.nextElementSibling;
+            voteCount.textContent = parseInt(voteCount.textContent) + 1;
+        }
+
+        // Downvote Function
+        function downvote(btn) {
+            const voteCount = btn.previousElementSibling;
+            voteCount.textContent = parseInt(voteCount.textContent) - 1;
+        }
+
+        // Add Citation Function
+        function addCitation() {
+            const container = document.getElementById('extension-container');
+
+            const newCitation = document.createElement('div');
+            newCitation.className = 'citation';
+            newCitation.innerHTML = `
+                <div class="citation-details">
+                    <strong>New Citation Title</strong>
+                    <p>Source: New Source | Author: Jane Smith</p>
+                </div>
+                <div class="vote-buttons">
+                    <button onclick="upvote(this)">👍</button>
+                    <span class="vote-count">0</span>
+                    <button onclick="downvote(this)">👎</button>
+                </div>
+            `;
+
+            container.insertBefore(newCitation, document.getElementById('add-citation-btn'));
+        }
+    </script>
+</body>
 </html>

@@ -1,6 +1,6 @@
 function insertBelowTitle() {
     const titleElement = document.querySelector("h1.style-scope.ytd-watch-metadata");
-    
+
     if (!titleElement) return; // Exit if title doesn't exist yet
 
     // Ensure only one instance is added
