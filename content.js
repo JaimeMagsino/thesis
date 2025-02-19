@@ -47,7 +47,17 @@ function loadCitationForm(container) {
     fetch(url)
         .then(response => response.text())
         .then(html => {
-            container.innerHTML = html;
+            // Remove extra buttons from the loaded HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Remove "Add a New Citation" and "List View" buttons
+            const addNewCitationBtn = doc.getElementById('add-citation-btn');
+            const listViewBtn = doc.getElementById('list-view-btn');
+            if (addNewCitationBtn) addNewCitationBtn.remove();
+            if (listViewBtn) listViewBtn.remove();
+
+            container.innerHTML = doc.body.innerHTML;
             setupFormListeners();
         })
         .catch(error => console.error("Error loading citation form:", error));
