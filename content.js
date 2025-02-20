@@ -29,46 +29,58 @@ function insertBelowTitle() {
 // Function to toggle visibility of sections
 function toggleSection(sectionId) {
     const section = document.getElementById(sectionId);
-    section.style.display = section.style.display === "none" ? "block" : "none";
+    const isActive = section.style.display === "block";
+    section.style.display = isActive ? "none" : "block";
 
-    if (sectionId === 'citation-form-container' && section.innerHTML === "") {
-        loadCitationForm(section);
-    }
+    if (!isActive) {
+        if (sectionId === 'citation-form-container' && section.innerHTML === "") {
+            loadCitationForm(section);
+        }
 
-    if (sectionId === 'list-view-container' && section.innerHTML === "") {
-        loadListView(section);
+        if (sectionId === 'list-view-container' && section.innerHTML === "") {
+            loadListView(section);
+        }
     }
 }
 
-// Load the citation form
+// ✅ Load the citation form and inject CSS
 function loadCitationForm(container) {
     const url = chrome.runtime.getURL("youtube_extension_citation.html");
 
     fetch(url)
         .then(response => response.text())
         .then(html => {
-            // Remove extra buttons from the loaded HTML
+            // Parse fetched HTML
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
 
-            // Remove "Add a New Citation" and "List View" buttons
+            // Remove unnecessary buttons if any
             const addNewCitationBtn = doc.getElementById('add-citation-btn');
             const listViewBtn = doc.getElementById('list-view-btn');
             if (addNewCitationBtn) addNewCitationBtn.remove();
             if (listViewBtn) listViewBtn.remove();
 
+            // Inject the content
             container.innerHTML = doc.body.innerHTML;
+
+            // ✅ Inject CSS dynamically into the page
+            const styleLink = document.createElement("link");
+            styleLink.rel = "stylesheet";
+            styleLink.href = chrome.runtime.getURL("youtube_extension_style.css");
+            document.head.appendChild(styleLink);
+
+            // ✅ Set up form listeners (external JS)
             setupFormListeners();
         })
         .catch(error => console.error("Error loading citation form:", error));
 }
 
-// Placeholder for loading list view
+// ✅ Placeholder for list view (expand this later)
 function loadListView(container) {
     container.innerHTML = `<h3>Citation List View</h3><p>This will display all added citations.</p>`;
 }
 
-// Add listeners to the form elements
+// ✅ Form submission and event listeners
 function setupFormListeners() {
     const form = document.getElementById('citation-form');
     if (form) {
@@ -80,7 +92,7 @@ function setupFormListeners() {
     }
 }
 
-// Debounce function
+// Debounce to avoid multiple triggers
 function debounce(func, delay) {
     let timeoutId;
     return function (...args) {
@@ -91,7 +103,7 @@ function debounce(func, delay) {
 
 const debouncedInsertBelowTitle = debounce(insertBelowTitle, 300);
 
-// MutationObserver to watch for changes
+// Watch for YouTube DOM changes
 const observer = new MutationObserver((mutationsList) => {
     for (const mutation of mutationsList) {
         if (mutation.type === 'childList' && !document.getElementById("custom-extension-element")) {
@@ -101,7 +113,7 @@ const observer = new MutationObserver((mutationsList) => {
     }
 });
 
-// Wait for the YouTube title container to appear
+// Start observing when YouTube page is ready
 const watchForTitle = setInterval(() => {
     const titleContainer = document.querySelector("ytd-watch-metadata");
     if (titleContainer) {

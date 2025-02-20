@@ -59,24 +59,7 @@
         <p>This will display all citations added by users.</p>
     </div>
 
-    <script>
-        // Page Navigation
-        document.getElementById('add-citation-btn').addEventListener('click', () => {
-            document.getElementById('add-citation-page').style.display = 'block';
-            document.getElementById('list-view-page').style.display = 'none';
-        });
+    <script src="youtube_extension_citation.js"></script>
 
-        document.getElementById('list-view-btn').addEventListener('click', () => {
-            document.getElementById('add-citation-page').style.display = 'none';
-            document.getElementById('list-view-page').style.display = 'block';
-        });
-
-        // Form Submission (Temporary, no backend yet)
-        document.getElementById('citation-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            alert('Citation Submitted!');
-            document.getElementById('citation-form').reset();
-        });
-    </script>
 </body>
 </html>

@@ -35,21 +35,30 @@ h2 {
 
 /* Form Styles */
 #citation-form {
-    width: 80%;
-    max-width: 600px;
+    width: 90%;
+    max-width: 800px;
     margin: 20px auto;
-    background-color: #fff;
+    background-color: #e6e6e6;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+#citation-form h2 {
+    grid-column: span 2;
+    text-align: center;
+    margin-bottom: 10px;
 }
 
 .form-group {
-    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
 }
 
 label {
-    display: block;
     margin-bottom: 5px;
     font-weight: bold;
 }
@@ -65,24 +74,33 @@ textarea {
 }
 
 textarea {
-    height: 100px;
+    height: 120px;
     resize: none;
 }
 
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
 .checkbox-group label {
-    display: block;
-    margin-top: 5px;
+    display: flex;
+    align-items: center;
 }
 
 #submit-btn {
-    width: 100%;
-    padding: 10px;
+    grid-column: span 2;
+    width: 50%;
+    margin: 0 auto;
+    padding: 12px;
     background-color: #28a745;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
     font-size: 16px;
+    text-align: center;
 }
 
 #submit-btn:hover {
@@ -91,23 +109,25 @@ textarea {
 
 /* Placeholder Page */
 #list-view-page {
-    width: 80%;
-    max-width: 600px;
+    width: 90%;
+    max-width: 800px;
     margin: 20px auto;
     background-color: #fff;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
     text-align: center;
 }
 
 /* Responsive */
 @media (max-width: 600px) {
-    #citation-form, #list-view-page {
-        width: 95%;
+    #citation-form {
+        grid-template-columns: 1fr;
+    }
+    #submit-btn {
+        width: 100%;
     }
 }
-
 
 /* Style for Citation Controls */
 #custom-extension-element {
@@ -150,4 +170,10 @@ textarea {
 #citation-form-container,
 #list-view-container {
     display: none;
+}
+
+#citation-form-container.active,
+#list-view-container.active {
+    border: 2px solid #0073e6;
+    box-shadow: 0 0 10px rgba(0, 115, 230, 0.2);
 }
