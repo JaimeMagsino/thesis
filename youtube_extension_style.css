@@ -125,6 +125,9 @@ textarea {
     text-align: center;
     color: #000000;
 }
+#list-view-page p {
+    color: #000000;
+}
 
 /* Responsive */
 @media (max-width: 600px) {
