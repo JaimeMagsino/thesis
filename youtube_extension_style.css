@@ -10,6 +10,10 @@ body {
 h2 {
     text-align: center;
     margin-top: 20px;
+    color: #000000;
+}
+h3 {
+    color: #000000; 
 }
 
 /* Navigation Bar */
@@ -119,6 +123,7 @@ textarea {
     border-radius: 8px;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
     text-align: center;
+    color: #000000;
 }
 
 /* Responsive */
