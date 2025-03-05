@@ -37,6 +37,7 @@ function toggleSection(sectionId) {
             loadListView(section);
         }
     }
+    forceUpdateTitle();
 }
 
 function loadCitationForm(container) {
@@ -87,6 +88,7 @@ function insertCitationButtons() {
         </div>
         <h3 id="citation-title">Citations</h3>
         <div id="citation-requests-container" style="display: none;"></div>
+        <div id="citations-container" style="display: none;"></div>
     `;
     
     secondaryElement.prepend(citationControls);
@@ -95,26 +97,86 @@ function insertCitationButtons() {
         switchTab("Citation Requests");
         loadCitationRequests();
     });
-    document.getElementById("citations-btn").addEventListener("click", () => switchTab("Citations"));
+    document.getElementById("citations-btn").addEventListener("click", () => {
+        switchTab("Citations");
+        loadCitations();
+    });
     document.getElementById("sort-options").addEventListener("change", (event) => sortCitations(event.target.value));
+
+    // Automatically show the Citation Requests tab
+    switchTab("Citation Requests");
+    loadCitationRequests();
 }
 
 function switchTab(tabName) {
     document.getElementById("citation-title").textContent = tabName;
     document.getElementById("citation-requests-container").style.display = tabName === "Citation Requests" ? "block" : "none";
+    document.getElementById("citations-container").style.display = tabName === "Citations" ? "block" : "none";
+    forceUpdateTitle();
 }
 
 function loadCitationRequests() {
     const container = document.getElementById("citation-requests-container");
     container.innerHTML = "";
+
+    const sampleData = [
+        {
+            username: "Researcher123",
+            dateRequested: "2025-03-01",
+            timestampStart: "00:01:30",
+            timestampEnd: "00:02:00",
+            reason: "Need credible source for this claim",
+            status: "Pending"
+        },
+        {
+            username: "Scholar789",
+            dateRequested: "2025-03-02",
+            timestampStart: "00:05:45",
+            timestampEnd: "00:06:30",
+            reason: "Requesting verification of statistics",
+            status: "Pending"
+        }
+    ];
+
+    sampleData.forEach(request => {
+        const requestElement = document.createElement("div");
+        requestElement.style.cssText = "border: 1px solid #ddd; padding: 10px; margin: 5px 0; background: #fff;";
+        requestElement.innerHTML = `
+            <p><strong>Username:</strong> ${request.username}</p>
+            <p><strong>Date Requested:</strong> ${request.dateRequested}</p>
+            <p><strong>Timestamp Start:</strong> ${request.timestampStart}</p>
+            <p><strong>Timestamp End:</strong> ${request.timestampEnd}</p>
+            <p><strong>Reason:</strong> ${request.reason}</p>
+            <p><strong>Status:</strong> ${request.status}</p>
+        `;
+        container.appendChild(requestElement);
+    });
+}
+
+function loadCitations() {
+    const container = document.getElementById("citations-container");
+    container.innerHTML = "";
     
     const sampleData = [
         {
-            username: "User123",
+            username: "Scholar456",
             datePosted: "2025-03-05",
-            timestampStart: "00:01:30",
-            timestampEnd: "00:02:00",
-            reason: "Incorrect historical reference"
+            timestampStart: "00:03:15",
+            timestampEnd: "00:04:00",
+            reasonForCitation: "This claim lacks credible sources and needs verification.",
+            likes: 15,
+            dislikes: 2,
+            source: "According to a study by Example University, this claim is unsubstantiated. Here's the link: https://example.com/source"
+        },
+        {
+            username: "Researcher789",
+            datePosted: "2025-03-06",
+            timestampStart: "00:10:00",
+            timestampEnd: "00:11:00",
+            reasonForCitation: "The statistics mentioned here seem outdated.",
+            likes: 8,
+            dislikes: 1,
+            source: "I found a more recent study that contradicts this claim. Check it out here: https://example.com/new-study"
         }
     ];
 
@@ -126,14 +188,20 @@ function loadCitationRequests() {
             <p><strong>Date Posted:</strong> ${citation.datePosted}</p>
             <p><strong>Timestamp Start:</strong> ${citation.timestampStart}</p>
             <p><strong>Timestamp End:</strong> ${citation.timestampEnd}</p>
-            <p><strong>Reason:</strong> ${citation.reason}</p>
+            <p><strong>Reason for Citation:</strong> ${citation.reasonForCitation}</p>
+            <p><strong>Likes:</strong> ${citation.likes}</p>
+            <p><strong>Dislikes:</strong> ${citation.dislikes}</p>
+            <p><strong>Source:</strong> ${citation.source}</p>
         `;
         container.appendChild(citationElement);
     });
 }
 
-function sortCitations(sortType) {
-    console.log(`Sorting citations by: ${sortType}`);
+function forceUpdateTitle() {
+    const titleElement = document.getElementById("citation-title");
+    if (titleElement) {
+        titleElement.textContent = titleElement.textContent;
+    }
 }
 
 function debounce(func, delay) {
@@ -147,25 +215,10 @@ function debounce(func, delay) {
 const debouncedInsertBelowTitle = debounce(insertBelowTitle, 300);
 const debouncedInsertCitationButtons = debounce(insertCitationButtons, 300);
 
-const observer = new MutationObserver((mutationsList) => {
-    for (const mutation of mutationsList) {
-        if (mutation.type === "childList") {
-            if (!document.getElementById("custom-extension-element")) {
-                debouncedInsertBelowTitle();
-            }
-            if (!document.getElementById("citation-controls")) {
-                debouncedInsertCitationButtons();
-            }
-            break;
-        }
-    }
-});
-
 const watchForTitle = setInterval(() => {
     const titleContainer = document.querySelector("ytd-watch-metadata");
     if (titleContainer) {
         clearInterval(watchForTitle);
-        observer.observe(titleContainer, { childList: true, subtree: true });
         debouncedInsertBelowTitle();
         debouncedInsertCitationButtons();
     }
