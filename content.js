@@ -139,11 +139,25 @@ function loadCitationRequests() {
             <p><strong>Timestamp Start:</strong> ${request.timestampStart}</p>
             <p><strong>Timestamp End:</strong> ${request.timestampEnd}</p>
             <p><strong>Reason:</strong> ${request.reason}</p>
-            <p><strong>Video:</strong> ${request.youtubeLink}</p>
+            <p><strong>Video:</strong> <a href="${request.youtubeLink}" target="_blank">${request.youtubeLink}</a></p>
+            <button class="cite-btn">Cite</button>
         `;
+
+        const citeButton = requestElement.querySelector(".cite-btn");
+        citeButton.addEventListener("click", () => handleCitationRequest(request));
+
         container.appendChild(requestElement);
     });
 }
+
+function handleCitationRequest(request) {
+    // Handle citation request
+    console.log("Citation Request Details:", request);
+
+    // Example: Open citation form with pre-filled details
+    alert(`Citing request from ${request.username} at ${request.timestampStart} - ${request.timestampEnd}`);
+}
+
 
 function loadCitations() {
     const container = document.getElementById("citations-container");
