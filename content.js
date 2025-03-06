@@ -82,8 +82,8 @@ function insertCitationButtons() {
             <button id="citation-requests-btn">Citation Requests</button>
             <button id="citations-btn">Citations</button>
             <select id="sort-options">
-                <option value="date">Sort by Date</option>
                 <option value="rating">Sort by Highest Rated</option>
+                <option value="date">Sort by Date</option>
             </select>
         </div>
         <h3 id="citation-title">Citations</h3>
@@ -118,27 +118,19 @@ function switchTab(tabName) {
 function loadCitationRequests() {
     const container = document.getElementById("citation-requests-container");
     container.innerHTML = "";
-
-    const sampleData = [
+    
+    const sampleRequests = [
         {
-            username: "Researcher123",
-            dateRequested: "2025-03-01",
-            timestampStart: "00:01:30",
+            username: "User123",
+            dateRequested: "2025-03-05",
+            timestampStart: "00:01:10",
             timestampEnd: "00:02:00",
-            reason: "Need credible source for this claim",
-            status: "Pending"
-        },
-        {
-            username: "Scholar789",
-            dateRequested: "2025-03-02",
-            timestampStart: "00:05:45",
-            timestampEnd: "00:06:30",
-            reason: "Requesting verification of statistics",
-            status: "Pending"
+            reason: "Fact-check needed on statement",
+            youtubeLink: "https://youtube.com/watch?v=sample1"
         }
     ];
 
-    sampleData.forEach(request => {
+    sampleRequests.forEach(request => {
         const requestElement = document.createElement("div");
         requestElement.style.cssText = "border: 1px solid #ddd; padding: 10px; margin: 5px 0; background: #fff;";
         requestElement.innerHTML = `
@@ -147,7 +139,7 @@ function loadCitationRequests() {
             <p><strong>Timestamp Start:</strong> ${request.timestampStart}</p>
             <p><strong>Timestamp End:</strong> ${request.timestampEnd}</p>
             <p><strong>Reason:</strong> ${request.reason}</p>
-            <p><strong>Status:</strong> ${request.status}</p>
+            <p><strong>Video:</strong> ${request.youtubeLink}</p>
         `;
         container.appendChild(requestElement);
     });
@@ -166,17 +158,8 @@ function loadCitations() {
             reasonForCitation: "This claim lacks credible sources and needs verification.",
             likes: 15,
             dislikes: 2,
-            source: "According to a study by Example University, this claim is unsubstantiated. Here's the link: https://example.com/source"
-        },
-        {
-            username: "Researcher789",
-            datePosted: "2025-03-06",
-            timestampStart: "00:10:00",
-            timestampEnd: "00:11:00",
-            reasonForCitation: "The statistics mentioned here seem outdated.",
-            likes: 8,
-            dislikes: 1,
-            source: "I found a more recent study that contradicts this claim. Check it out here: https://example.com/new-study"
+            citationSource: "https://example.com/source",
+            youtubeLink: "https://youtube.com/watch?v=sample2"
         }
     ];
 
@@ -191,7 +174,8 @@ function loadCitations() {
             <p><strong>Reason for Citation:</strong> ${citation.reasonForCitation}</p>
             <p><strong>Likes:</strong> ${citation.likes}</p>
             <p><strong>Dislikes:</strong> ${citation.dislikes}</p>
-            <p><strong>Source:</strong> ${citation.source}</p>
+            <p><strong>Source:</strong> ${citation.citationSource}</p>
+            <p><strong>Video:</strong> ${citation.youtubeLink}</p>
         `;
         container.appendChild(citationElement);
     });
