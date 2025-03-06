@@ -65,21 +65,6 @@ function loadCitationForm(container) {
         .catch(error => console.error("Error loading citation form:", error));
 }
 
-function loadListView(container) {
-    container.innerHTML = `<h3>Citation List View</h3><p>This will display all added citations.</p>`;
-}
-
-function setupFormListeners() {
-    const form = document.getElementById('citation-form');
-    if (form) {
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            alert('Citation Submitted!');
-            form.reset();
-        });
-    }
-}
-
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
     
@@ -101,17 +86,50 @@ function insertCitationButtons() {
             </select>
         </div>
         <h3 id="citation-title">Citations</h3>
+        <div id="citation-requests-container" style="display: none;"></div>
     `;
     
     secondaryElement.prepend(citationControls);
 
-    document.getElementById("citation-requests-btn").addEventListener("click", () => switchTab("Citation Requests"));
+    document.getElementById("citation-requests-btn").addEventListener("click", () => {
+        switchTab("Citation Requests");
+        loadCitationRequests();
+    });
     document.getElementById("citations-btn").addEventListener("click", () => switchTab("Citations"));
     document.getElementById("sort-options").addEventListener("change", (event) => sortCitations(event.target.value));
 }
 
 function switchTab(tabName) {
     document.getElementById("citation-title").textContent = tabName;
+    document.getElementById("citation-requests-container").style.display = tabName === "Citation Requests" ? "block" : "none";
+}
+
+function loadCitationRequests() {
+    const container = document.getElementById("citation-requests-container");
+    container.innerHTML = "";
+    
+    const sampleData = [
+        {
+            username: "User123",
+            datePosted: "2025-03-05",
+            timestampStart: "00:01:30",
+            timestampEnd: "00:02:00",
+            reason: "Incorrect historical reference"
+        }
+    ];
+
+    sampleData.forEach(citation => {
+        const citationElement = document.createElement("div");
+        citationElement.style.cssText = "border: 1px solid #ddd; padding: 10px; margin: 5px 0; background: #fff;";
+        citationElement.innerHTML = `
+            <p><strong>Username:</strong> ${citation.username}</p>
+            <p><strong>Date Posted:</strong> ${citation.datePosted}</p>
+            <p><strong>Timestamp Start:</strong> ${citation.timestampStart}</p>
+            <p><strong>Timestamp End:</strong> ${citation.timestampEnd}</p>
+            <p><strong>Reason:</strong> ${citation.reason}</p>
+        `;
+        container.appendChild(citationElement);
+    });
 }
 
 function sortCitations(sortType) {
@@ -149,14 +167,6 @@ const watchForTitle = setInterval(() => {
         clearInterval(watchForTitle);
         observer.observe(titleContainer, { childList: true, subtree: true });
         debouncedInsertBelowTitle();
-    }
-}, 500);
-
-const watchForSecondary = setInterval(() => {
-    const secondaryContainer = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
-    if (secondaryContainer) {
-        clearInterval(watchForSecondary);
-        observer.observe(secondaryContainer, { childList: true, subtree: true });
         debouncedInsertCitationButtons();
     }
 }, 500);

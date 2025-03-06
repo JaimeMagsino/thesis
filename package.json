@@ -1,0 +1,23 @@
+{
+  "name": "thesis",
+  "version": "1.0.0",
+  "description": "Repo for youtube extension",
+  "main": "content.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JaimeMagsino/thesis.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JaimeMagsino/thesis/issues"
+  },
+  "homepage": "https://github.com/JaimeMagsino/thesis#readme",
+  "dependencies": {
+    "firebase": "^11.4.0"
+  }
+}
