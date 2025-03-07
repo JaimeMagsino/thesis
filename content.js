@@ -115,22 +115,58 @@ function switchTab(tabName) {
     forceUpdateTitle();
 }
 
+function getCurrentVideoTimestamp() {
+    const video = document.querySelector("video");
+    return video ? video.currentTime : 0;
+}
+
+
 function loadCitationRequests() {
     const container = document.getElementById("citation-requests-container");
     container.innerHTML = "";
-    
+
+    const currentTimestamp = getCurrentVideoTimestamp();
+
     const sampleRequests = [
         {
-            username: "User123",
-            dateRequested: "2025-03-05",
-            timestampStart: "00:01:10",
-            timestampEnd: "00:02:00",
-            reason: "Fact-check needed on statement",
+            username: "UserA",
+            dateRequested: "2025-03-07",
+            timestampStart: "00:00:30",
+            timestampEnd: "00:01:00",
+            reason: "Fact-check needed on historical claim",
             youtubeLink: "https://youtube.com/watch?v=sample1"
+        },
+        {
+            username: "UserB",
+            dateRequested: "2025-03-07",
+            timestampStart: "00:00:35",
+            timestampEnd: "00:03:00",
+            reason: "Verify scientific statement",
+            youtubeLink: "https://youtube.com/watch?v=sample2"
+        },
+        {
+            username: "UserC",
+            dateRequested: "2025-03-07",
+            timestampStart: "00:05:10",
+            timestampEnd: "00:06:00",
+            reason: "Check source for political statement",
+            youtubeLink: "https://youtube.com/watch?v=sample3"
         }
     ];
 
-    sampleRequests.forEach(request => {
+    // Filter requests based on the current video timestamp
+    const filteredRequests = sampleRequests.filter(request => {
+        const startTime = timeToSeconds(request.timestampStart);
+        const endTime = timeToSeconds(request.timestampEnd);
+        return currentTimestamp >= startTime && currentTimestamp <= endTime;
+    });
+
+    // if (filteredRequests.length === 0) {
+    //     container.innerHTML = "<p>No active citation requests at this timestamp.</p>";
+    //     return;
+    // }
+
+    filteredRequests.forEach(request => {
         const requestElement = document.createElement("div");
         requestElement.style.cssText = "border: 1px solid #ddd; padding: 10px; margin: 5px 0; background: #fff;";
         requestElement.innerHTML = `
@@ -149,6 +185,18 @@ function loadCitationRequests() {
         container.appendChild(requestElement);
     });
 }
+
+
+function timeToSeconds(time) {
+    const parts = time.split(":").map(Number);
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+
+setInterval(() => {
+    loadCitationRequests();
+}, 1000); // Updates every 1 seconds
+
+
 
 function handleCitationRequest(request) {
     // Handle citation request
