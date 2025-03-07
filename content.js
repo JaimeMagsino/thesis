@@ -147,28 +147,34 @@ function loadCitationRequests() {
         {
             username: "UserC",
             dateRequested: "2025-03-07",
-            timestampStart: "00:05:10",
+            timestampStart: "00:00:20",
             timestampEnd: "00:06:00",
             reason: "Check source for political statement",
             youtubeLink: "https://youtube.com/watch?v=sample3"
         }
     ];
 
-    // Filter requests based on the current video timestamp
-    const filteredRequests = sampleRequests.filter(request => {
-        const startTime = timeToSeconds(request.timestampStart);
-        const endTime = timeToSeconds(request.timestampEnd);
-        return currentTimestamp >= startTime && currentTimestamp <= endTime;
+    // Sort by most recent timestampStart, prioritizing those within the timestamp range
+    sampleRequests.sort((a, b) => {
+        const aStart = timeToSeconds(a.timestampStart);
+        const bStart = timeToSeconds(b.timestampStart);
+        const aInRange = isInTimestampRange(a);
+        const bInRange = isInTimestampRange(b);
+
+        // Prioritize in-range timestamps, then sort by most recent start time
+        if (aInRange && !bInRange) return -1;
+        if (!aInRange && bInRange) return 1;
+        return bStart - aStart; // Sort by most recent timestampStart
     });
 
-    // if (filteredRequests.length === 0) {
-    //     container.innerHTML = "<p>No active citation requests at this timestamp.</p>";
-    //     return;
-    // }
-
-    filteredRequests.forEach(request => {
+    sampleRequests.forEach(request => {
         const requestElement = document.createElement("div");
-        requestElement.style.cssText = "border: 1px solid #ddd; padding: 10px; margin: 5px 0; background: #fff;";
+        requestElement.style.cssText = `
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            margin: 5px 0; 
+            background: ${isInTimestampRange(request) ? '#fffae6' : '#fff'}; 
+        `;
         requestElement.innerHTML = `
             <p><strong>Username:</strong> ${request.username}</p>
             <p><strong>Date Requested:</strong> ${request.dateRequested}</p>
@@ -185,6 +191,24 @@ function loadCitationRequests() {
         container.appendChild(requestElement);
     });
 }
+
+// Helper function to check if a request is within the current timestamp range
+function isInTimestampRange(request) {
+    const currentTimestamp = getCurrentVideoTimestamp();
+    const startTime = timeToSeconds(request.timestampStart);
+    const endTime = timeToSeconds(request.timestampEnd);
+    return currentTimestamp >= startTime && currentTimestamp <= endTime;
+}
+
+
+// Helper function to check if a request is within the current timestamp
+function isInTimestampRange(request) {
+    const currentTimestamp = getCurrentVideoTimestamp();
+    const startTime = timeToSeconds(request.timestampStart);
+    const endTime = timeToSeconds(request.timestampEnd);
+    return currentTimestamp >= startTime && currentTimestamp <= endTime;
+}
+
 
 
 function timeToSeconds(time) {
