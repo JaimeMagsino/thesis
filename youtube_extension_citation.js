@@ -1,28 +1,32 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Select the form and fields
-    const citationForm = document.getElementById("citation-form");
-    const titleInput = document.getElementById("citation-title");
-    const startTimestampInput = document.getElementById("timestamp1");
-    const endTimestampInput = document.getElementById("timestamp2");
-    const contentInput = document.getElementById("citation-content");
+    // Page Navigation
+    const addCitationPage = document.getElementById('add-citation-page');
+    const requestCitationPage = document.getElementById('request-citation-page');
 
-    // Form submission event listener
-    if (citationForm) {
-        citationForm.addEventListener("submit", (event) => {
-            event.preventDefault();
-            
-            const citationData = {
-                title: titleInput.value,
-                startTimestamp: startTimestampInput.value,
-                endTimestamp: endTimestampInput.value,
-                content: contentInput.value,
-            };
+    const addCitationBtn = document.getElementById('add-citation-btn');
+    const requestCitationBtn = document.getElementById('request-citation-btn');
 
-            console.log("Citation Created:", citationData);
-            alert("Citation Created Successfully!");
-            
-            // Reset form after submission
-            citationForm.reset();
+    if (addCitationBtn) {
+        addCitationBtn.addEventListener('click', () => {
+            addCitationPage.style.display = 'block';
+            requestCitationPage.style.display = 'none';
+        });
+    }
+
+    if (requestCitationBtn) {
+        requestCitationBtn.addEventListener('click', () => {
+            addCitationPage.style.display = 'none';
+            requestCitationPage.style.display = 'block';
+        });
+    }
+
+    // Form Submission
+    const form = document.getElementById('citation-form');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Citation Submitted!');
+            form.reset();
         });
     }
 });
