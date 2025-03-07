@@ -1,8 +1,9 @@
 {
     "manifest_version": 3,
-    "name": "YouTube Title Modifier",
+    "name": "YouTube Citation Extension",
     "version": "1.0",
-    "description": "Adds an element below the YouTube video title.",
+    "description": "Extension to add and manage citations on YouTube videos.",
+    "permissions": ["activeTab", "scripting"],
     "content_scripts": [
         {
             "matches": ["*://www.youtube.com/watch*"],
@@ -12,8 +13,16 @@
     ],
     "web_accessible_resources": [
         {
-            "resources": ["content.html"],
+            "resources": ["content.html", "youtube_extension_citation.html", "youtube_extension_style.css","youtube_extension_citation.js"],
             "matches": ["<all_urls>"]
         }
-    ]
+    ],
+    "action": {
+        "default_popup": "youtube_extension_citation.html",
+        "default_icon": {
+            "16": "icon16.png",
+            "48": "icon48.png"
+            
+        }
+    }
 }

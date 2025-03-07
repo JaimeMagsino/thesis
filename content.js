@@ -1,35 +1,207 @@
 function insertBelowTitle() {
     const titleElement = document.querySelector("h1.style-scope.ytd-watch-metadata");
-    
-    if (!titleElement) return; // Exit if title doesn't exist yet
 
-    // Ensure only one instance is added
+    if (!titleElement) return;
+
     if (document.getElementById("custom-extension-element")) return;
 
-    const url = chrome.runtime.getURL("content.html");
+    const newElement = document.createElement("div");
+    newElement.id = "custom-extension-element";
+    newElement.style.cssText = "background-color: #f0f0f0; padding: 10px; margin-top: 5px;";
 
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error("Failed to fetch content.html");
-            }
-            return response.text();
-        })
-        .then(html => {
-            const newElement = document.createElement("div");
-            newElement.id = "custom-extension-element"; // Unique ID
-            newElement.innerHTML = html;
-            newElement.style.cssText = "margin-top: 5px;"; // Custom styling
+    newElement.innerHTML = `
+        <h3>Citation Controls</h3>
+        <button id="add-citation-btn">Add Citation</button>
+        <button id="list-view-btn">List View</button>
+        <div id="citation-form-container" style="display: none;"></div>
+        <div id="list-view-container" style="display: none;"></div>
+    `;
 
-            titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
+    titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
 
-            // Disconnect the observer after inserting the element
-            observer.disconnect();
-        })
-        .catch(error => console.error("Error loading content.html:", error));
+    document.getElementById('add-citation-btn').addEventListener('click', () => toggleSection('citation-form-container'));
+    document.getElementById('list-view-btn').addEventListener('click', () => toggleSection('list-view-container'));
 }
 
-// Debounce function to limit how often insertBelowTitle is called
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const isActive = section.style.display === "block";
+    section.style.display = isActive ? "none" : "block";
+
+    if (!isActive) {
+        if (sectionId === 'citation-form-container' && section.innerHTML === "") {
+            loadCitationForm(section);
+        }
+
+        if (sectionId === 'list-view-container' && section.innerHTML === "") {
+            loadListView(section);
+        }
+    }
+    forceUpdateTitle();
+}
+
+function loadCitationForm(container) {
+    const url = chrome.runtime.getURL("youtube_extension_citation.html");
+
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const addNewCitationBtn = doc.getElementById('add-citation-btn');
+            const listViewBtn = doc.getElementById('list-view-btn');
+            if (addNewCitationBtn) addNewCitationBtn.remove();
+            if (listViewBtn) listViewBtn.remove();
+
+            container.innerHTML = doc.body.innerHTML;
+
+            const styleLink = document.createElement("link");
+            styleLink.rel = "stylesheet";
+            styleLink.href = chrome.runtime.getURL("youtube_extension_style.css");
+            document.head.appendChild(styleLink);
+
+            setupFormListeners();
+        })
+        .catch(error => console.error("Error loading citation form:", error));
+}
+
+function insertCitationButtons() {
+    const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+    
+    if (!secondaryElement) return;
+    
+    if (document.getElementById("citation-controls")) return;
+    
+    const citationControls = document.createElement("div");
+    citationControls.id = "citation-controls";
+    citationControls.style.cssText = "background-color: #f8f9fa; padding: 10px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; border-radius: 5px; flex-direction: column;";
+    
+    citationControls.innerHTML = `
+        <div style="display: flex; gap: 10px;">
+            <button id="citation-requests-btn">Citation Requests</button>
+            <button id="citations-btn">Citations</button>
+            <select id="sort-options">
+                <option value="rating">Sort by Highest Rated</option>
+                <option value="date">Sort by Date</option>
+            </select>
+        </div>
+        <h3 id="citation-title">Citations</h3>
+        <div id="citation-requests-container" style="display: none;"></div>
+        <div id="citations-container" style="display: none;"></div>
+    `;
+    
+    secondaryElement.prepend(citationControls);
+
+    document.getElementById("citation-requests-btn").addEventListener("click", () => {
+        switchTab("Citation Requests");
+        loadCitationRequests();
+    });
+    document.getElementById("citations-btn").addEventListener("click", () => {
+        switchTab("Citations");
+        loadCitations();
+    });
+    document.getElementById("sort-options").addEventListener("change", (event) => sortCitations(event.target.value));
+
+    // Automatically show the Citation Requests tab
+    switchTab("Citation Requests");
+    loadCitationRequests();
+}
+
+function switchTab(tabName) {
+    document.getElementById("citation-title").textContent = tabName;
+    document.getElementById("citation-requests-container").style.display = tabName === "Citation Requests" ? "block" : "none";
+    document.getElementById("citations-container").style.display = tabName === "Citations" ? "block" : "none";
+    forceUpdateTitle();
+}
+
+function loadCitationRequests() {
+    const container = document.getElementById("citation-requests-container");
+    container.innerHTML = "";
+    
+    const sampleRequests = [
+        {
+            username: "User123",
+            dateRequested: "2025-03-05",
+            timestampStart: "00:01:10",
+            timestampEnd: "00:02:00",
+            reason: "Fact-check needed on statement",
+            youtubeLink: "https://youtube.com/watch?v=sample1"
+        }
+    ];
+
+    sampleRequests.forEach(request => {
+        const requestElement = document.createElement("div");
+        requestElement.style.cssText = "border: 1px solid #ddd; padding: 10px; margin: 5px 0; background: #fff;";
+        requestElement.innerHTML = `
+            <p><strong>Username:</strong> ${request.username}</p>
+            <p><strong>Date Requested:</strong> ${request.dateRequested}</p>
+            <p><strong>Timestamp Start:</strong> ${request.timestampStart}</p>
+            <p><strong>Timestamp End:</strong> ${request.timestampEnd}</p>
+            <p><strong>Reason:</strong> ${request.reason}</p>
+            <p><strong>Video:</strong> <a href="${request.youtubeLink}" target="_blank">${request.youtubeLink}</a></p>
+            <button class="cite-btn">Cite</button>
+        `;
+
+        const citeButton = requestElement.querySelector(".cite-btn");
+        citeButton.addEventListener("click", () => handleCitationRequest(request));
+
+        container.appendChild(requestElement);
+    });
+}
+
+function handleCitationRequest(request) {
+    // Handle citation request
+    console.log("Citation Request Details:", request);
+
+    // Example: Open citation form with pre-filled details
+    alert(`Citing request from ${request.username} at ${request.timestampStart} - ${request.timestampEnd}`);
+}
+
+
+function loadCitations() {
+    const container = document.getElementById("citations-container");
+    container.innerHTML = "";
+    
+    const sampleData = [
+        {
+            username: "Scholar456",
+            datePosted: "2025-03-05",
+            timestampStart: "00:03:15",
+            timestampEnd: "00:04:00",
+            reasonForCitation: "This claim lacks credible sources and needs verification.",
+            likes: 15,
+            dislikes: 2,
+            citationSource: "https://example.com/source",
+            youtubeLink: "https://youtube.com/watch?v=sample2"
+        }
+    ];
+
+    sampleData.forEach(citation => {
+        const citationElement = document.createElement("div");
+        citationElement.style.cssText = "border: 1px solid #ddd; padding: 10px; margin: 5px 0; background: #fff;";
+        citationElement.innerHTML = `
+            <p><strong>Username:</strong> ${citation.username}</p>
+            <p><strong>Date Posted:</strong> ${citation.datePosted}</p>
+            <p><strong>Timestamp Start:</strong> ${citation.timestampStart}</p>
+            <p><strong>Timestamp End:</strong> ${citation.timestampEnd}</p>
+            <p><strong>Reason for Citation:</strong> ${citation.reasonForCitation}</p>
+            <p><strong>Likes:</strong> ${citation.likes}</p>
+            <p><strong>Dislikes:</strong> ${citation.dislikes}</p>
+            <p><strong>Source:</strong> ${citation.citationSource}</p>
+            <p><strong>Video:</strong> ${citation.youtubeLink}</p>
+        `;
+        container.appendChild(citationElement);
+    });
+}
+
+function forceUpdateTitle() {
+    const titleElement = document.getElementById("citation-title");
+    if (titleElement) {
+        titleElement.textContent = titleElement.textContent;
+    }
+}
+
 function debounce(func, delay) {
     let timeoutId;
     return function (...args) {
@@ -38,25 +210,14 @@ function debounce(func, delay) {
     };
 }
 
-// Debounced version of insertBelowTitle
 const debouncedInsertBelowTitle = debounce(insertBelowTitle, 300);
+const debouncedInsertCitationButtons = debounce(insertCitationButtons, 300);
 
-// MutationObserver to watch for changes in the title container
-const observer = new MutationObserver((mutationsList) => {
-    for (const mutation of mutationsList) {
-        if (mutation.type === 'childList' && !document.getElementById("custom-extension-element")) {
-            debouncedInsertBelowTitle();
-            break; // Exit the loop once the element is inserted
-        }
-    }
-});
-
-// Wait for the YouTube title container to appear
 const watchForTitle = setInterval(() => {
     const titleContainer = document.querySelector("ytd-watch-metadata");
     if (titleContainer) {
-        clearInterval(watchForTitle); // Stop checking once found
-        observer.observe(titleContainer, { childList: true, subtree: true });
-        debouncedInsertBelowTitle(); // Run once immediately
+        clearInterval(watchForTitle);
+        debouncedInsertBelowTitle();
+        debouncedInsertCitationButtons();
     }
 }, 500);
