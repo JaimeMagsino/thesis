@@ -1,32 +1,27 @@
-document.addEventListener("DOMContentLoaded", () => {
-    // Page Navigation
-    const addCitationPage = document.getElementById('add-citation-page');
-    const requestCitationPage = document.getElementById('request-citation-page');
-
-    const addCitationBtn = document.getElementById('add-citation-btn');
-    const requestCitationBtn = document.getElementById('request-citation-btn');
-
-    if (addCitationBtn) {
-        addCitationBtn.addEventListener('click', () => {
-            addCitationPage.style.display = 'block';
-            requestCitationPage.style.display = 'none';
-        });
-    }
-
-    if (requestCitationBtn) {
-        requestCitationBtn.addEventListener('click', () => {
-            addCitationPage.style.display = 'none';
-            requestCitationPage.style.display = 'block';
-        });
-    }
-
-    // Form Submission
+// Function to attach event listeners for forms
+function setupFormListeners() {
     const form = document.getElementById('citation-form');
-    if (form) {
+    if (form && !form.dataset.listener) {
+        form.dataset.listener = "true"; // Prevent duplicate event listeners
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             alert('Citation Submitted!');
             form.reset();
         });
     }
+
+    const requestForm = document.getElementById('request-form');
+    if (requestForm && !requestForm.dataset.listener) {
+        requestForm.dataset.listener = "true"; // Prevent duplicate event listeners
+        requestForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Citation Request Submitted!');
+            requestForm.reset();
+        });
+    }
+}
+
+// Run `setupFormListeners()` after the page is fully loaded
+document.addEventListener("DOMContentLoaded", () => {
+    setupFormListeners();
 });

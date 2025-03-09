@@ -13,7 +13,14 @@
     ],
     "web_accessible_resources": [
         {
-            "resources": ["content.html", "youtube_extension_citation.html", "youtube_extension_style.css","youtube_extension_citation.js"],
+            "resources": [
+            
+            "content.html", 
+            "youtube_extension_citation.html", 
+            "youtube_extension_request.html",
+            "youtube_extension_style.css",
+            "youtube_extension_citation.js"
+        ],
             "matches": ["<all_urls>"]
         }
     ],

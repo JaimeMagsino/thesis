@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request for Citation</title>
+    <link rel="stylesheet" href="youtube_extension_style.css">
+</head>
+<body>
+    <h2>Request for Citation</h2>
+    <form id="request-form">
+        <div class="form-group">
+            <label for="request-timestamp1">Start Timestamp:</label>
+            <input type="text" id="request-timestamp1" placeholder="Start (e.g., 00:01:23)" required>
+        </div>
+
+        <div class="form-group">
+            <label for="request-timestamp2">End Timestamp:</label>
+            <input type="text" id="request-timestamp2" placeholder="End (e.g., 00:02:45)" required>
+        </div>
+
+        <div class="form-group">
+            <label for="request-reason">Reason for Citation:</label>
+            <textarea id="request-reason" placeholder="Enter reason for citation..." required></textarea>
+        </div>
+
+        <button type="submit" id="request-submit-btn">Submit Request</button>
+    </form>
+
+    <script src="youtube_extension_citation.js"></script>
+</body>
+</html>
