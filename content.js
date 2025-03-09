@@ -12,6 +12,7 @@ function insertBelowTitle() {
     newElement.innerHTML = `
         <h3>Citation Controls</h3>
         <button id="add-citation-btn">Add Citation</button>
+        <button id="add-citation-btn">Request for Citation</button>
         <div id="citation-form-container" style="display: none;"></div>
         <div id="list-view-container" style="display: none;"></div>
     `;
