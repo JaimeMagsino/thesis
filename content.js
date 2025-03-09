@@ -11,35 +11,33 @@ function insertBelowTitle() {
 
     newElement.innerHTML = `
         <h3>Citation Controls</h3>
-        <button id="add-citation-btn" class="tab-btn active">Add Citation</button>
-        <button id="request-citation-btn" class="tab-btn">Request for Citation</button>
-        
-        <div id="add-citation-page"></div>
-        <div id="request-citation-page" style="display: none;"></div>
+        <button id="add-citation-btn">Add Citation</button>
+        <div id="citation-form-container" style="display: none;"></div>
+        <div id="list-view-container" style="display: none;"></div>
     `;
 
     titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
 
-    // Add event listeners for tab switching
-    document.getElementById('add-citation-btn').addEventListener('click', () => showPage('add-citation-page', 'add-citation-btn'));
-    document.getElementById('request-citation-btn').addEventListener('click', () => showPage('request-citation-page', 'request-citation-btn'));
-
-    // Load both pages into containers
-    loadPage("youtube_extension_citation.html", "add-citation-page");
-    loadPage("youtube_extension_request.html", "request-citation-page");
+    document.getElementById('add-citation-btn').addEventListener('click', () => toggleSection('citation-form-container'));
+    document.getElementById('list-view-btn').addEventListener('click', () => toggleSection('list-view-container'));
 }
 
-function showPage(pageId, buttonId) {
-    document.getElementById("add-citation-page").style.display = "none";
-    document.getElementById("request-citation-page").style.display = "none";
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const isActive = section.style.display === "block";
+    section.style.display = isActive ? "none" : "block";
 
-    document.getElementById(pageId).style.display = "block";
+    if (!isActive) {
+        if (sectionId === 'citation-form-container' && section.innerHTML === "") {
+            loadCitationForm(section);
+        }
 
-    // Update active button style
-    document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
-    document.getElementById(buttonId).classList.add("active");
+        if (sectionId === 'list-view-container' && section.innerHTML === "") {
+            loadListView(section);
+        }
+    }
+    forceUpdateTitle();
 }
-
 
 function loadCitationForm(container) {
     const url = chrome.runtime.getURL("youtube_extension_citation.html");
@@ -47,7 +45,15 @@ function loadCitationForm(container) {
     fetch(url)
         .then(response => response.text())
         .then(html => {
-            container.innerHTML = html;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const addNewCitationBtn = doc.getElementById('add-citation-btn');
+            const listViewBtn = doc.getElementById('list-view-btn');
+            if (addNewCitationBtn) addNewCitationBtn.remove();
+            if (listViewBtn) listViewBtn.remove();
+
+            container.innerHTML = doc.body.innerHTML;
 
             const styleLink = document.createElement("link");
             styleLink.rel = "stylesheet";
@@ -58,16 +64,6 @@ function loadCitationForm(container) {
         })
         .catch(error => console.error("Error loading citation form:", error));
 }
-
-function loadPage(url, containerId) {
-    fetch(chrome.runtime.getURL(url))
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById(containerId).innerHTML = html;
-        });
-}
-
-
 
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
