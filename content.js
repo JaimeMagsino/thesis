@@ -216,9 +216,6 @@ function timeToSeconds(time) {
     return parts[0] * 3600 + parts[1] * 60 + parts[2];
 }
 
-setInterval(() => {
-    loadCitationRequests();
-}, 1000); // Updates every 1 seconds
 
 
 
@@ -234,24 +231,66 @@ function handleCitationRequest(request) {
 function loadCitations() {
     const container = document.getElementById("citations-container");
     container.innerHTML = "";
-    
-    const sampleData = [
+
+    const currentTimestamp = getCurrentVideoTimestamp();
+
+    const sampleCitations = [
         {
             username: "Scholar456",
             datePosted: "2025-03-05",
-            timestampStart: "00:03:15",
+            timestampStart: "00:00:15",
             timestampEnd: "00:04:00",
             reasonForCitation: "This claim lacks credible sources and needs verification.",
             likes: 15,
             dislikes: 2,
             citationSource: "https://example.com/source",
             youtubeLink: "https://youtube.com/watch?v=sample2"
+        },
+        {
+            username: "Researcher789",
+            datePosted: "2025-03-06",
+            timestampStart: "00:00:30",
+            timestampEnd: "00:02:00",
+            reasonForCitation: "Statistical data needs verification.",
+            likes: 10,
+            dislikes: 3,
+            citationSource: "https://example.com/data",
+            youtubeLink: "https://youtube.com/watch?v=sample3"
+        },
+        {
+            username: "Expert101",
+            datePosted: "2025-03-07",
+            timestampStart: "00:00:20",
+            timestampEnd: "00:06:30",
+            reasonForCitation: "Claim is misleading, needs context.",
+            likes: 25,
+            dislikes: 1,
+            citationSource: "https://example.com/context",
+            youtubeLink: "https://youtube.com/watch?v=sample4"
         }
     ];
 
-    sampleData.forEach(citation => {
+    // Sort by most recent timestampStart, prioritizing those within the timestamp range
+    sampleCitations.sort((a, b) => {
+        const aStart = timeToSeconds(a.timestampStart);
+        const bStart = timeToSeconds(b.timestampStart);
+        const aInRange = isInTimestampRange(a);
+        const bInRange = isInTimestampRange(b);
+
+        // Prioritize in-range citations, then sort by most recent start time
+        if (aInRange && !bInRange) return -1;
+        if (!aInRange && bInRange) return 1;
+        return bStart - aStart; // Sort by most recent timestampStart
+    });
+
+    sampleCitations.forEach(citation => {
         const citationElement = document.createElement("div");
-        citationElement.style.cssText = "border: 1px solid #ddd; padding: 10px; margin: 5px 0; background: #fff;";
+        citationElement.style.cssText = `
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            margin: 5px 0; 
+            background: ${isInTimestampRange(citation) ? '#fffae6' : '#fff'}; 
+        `;
         citationElement.innerHTML = `
             <p><strong>Username:</strong> ${citation.username}</p>
             <p><strong>Date Posted:</strong> ${citation.datePosted}</p>
@@ -260,12 +299,19 @@ function loadCitations() {
             <p><strong>Reason for Citation:</strong> ${citation.reasonForCitation}</p>
             <p><strong>Likes:</strong> ${citation.likes}</p>
             <p><strong>Dislikes:</strong> ${citation.dislikes}</p>
-            <p><strong>Source:</strong> ${citation.citationSource}</p>
-            <p><strong>Video:</strong> ${citation.youtubeLink}</p>
+            <p><strong>Source:</strong> <a href="${citation.citationSource}" target="_blank">${citation.citationSource}</a></p>
+            <p><strong>Video:</strong> <a href="${citation.youtubeLink}" target="_blank">${citation.youtubeLink}</a></p>
         `;
+
         container.appendChild(citationElement);
     });
 }
+
+setInterval(() => {
+    loadCitationRequests();
+    loadCitations();
+}, 1000); // Updates every 1 seconds
+
 
 function forceUpdateTitle() {
     const titleElement = document.getElementById("citation-title");
