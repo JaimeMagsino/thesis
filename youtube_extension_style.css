@@ -47,9 +47,9 @@ h3 {
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    display: flex;
+    flex-direction: column; /* Stack form fields vertically */
+    gap: 10px;
 }
 
 #citation-form h2 {
@@ -61,6 +61,7 @@ h3 {
 .form-group {
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 label {

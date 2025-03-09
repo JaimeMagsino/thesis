@@ -2,7 +2,6 @@ function insertBelowTitle() {
     const titleElement = document.querySelector("h1.style-scope.ytd-watch-metadata");
 
     if (!titleElement) return;
-
     if (document.getElementById("custom-extension-element")) return;
 
     const newElement = document.createElement("div");
@@ -11,60 +10,88 @@ function insertBelowTitle() {
 
     newElement.innerHTML = `
         <h3>Citation Controls</h3>
-        <button id="add-citation-btn">Add Citation</button>
-        <button id="list-view-btn">List View</button>
-        <div id="citation-form-container" style="display: none;"></div>
-        <div id="list-view-container" style="display: none;"></div>
+        <button id="add-citation-btn" class="tab-btn active">Add Citation</button>
+        <button id="request-citation-btn" class="tab-btn">Request for Citation</button>
+        
+        <div id="citation-container"></div>
     `;
 
     titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
 
-    document.getElementById('add-citation-btn').addEventListener('click', () => toggleSection('citation-form-container'));
-    document.getElementById('list-view-btn').addEventListener('click', () => toggleSection('list-view-container'));
+    // Load "Add Citation" by default
+    loadPage("youtube_extension_citation.html", "citation-container");
+
+    // Add event listeners for tab switching
+    document.getElementById('add-citation-btn').addEventListener('click', () => {
+        loadPage("youtube_extension_citation.html", "citation-container");
+    });
+
+    document.getElementById('request-citation-btn').addEventListener('click', () => {
+        loadPage("youtube_extension_request.html", "citation-container");
+    });
 }
 
-function toggleSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    const isActive = section.style.display === "block";
-    section.style.display = isActive ? "none" : "block";
 
-    if (!isActive) {
-        if (sectionId === 'citation-form-container' && section.innerHTML === "") {
-            loadCitationForm(section);
-        }
 
-        if (sectionId === 'list-view-container' && section.innerHTML === "") {
-            loadListView(section);
-        }
+// Function to switch between Add Citation and Request for Citation
+function showPage(sectionId, buttonId) {
+    const allSections = document.querySelectorAll("#citation-container > div");
+
+    allSections.forEach(section => {
+        section.style.display = "none";
+    });
+
+    const activeSection = document.getElementById(sectionId);
+    if (activeSection) {
+        activeSection.style.display = "block";
     }
-    forceUpdateTitle();
+
+    // Update active button styling
+    document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+    document.getElementById(buttonId).classList.add("active");
 }
 
-function loadCitationForm(container) {
-    const url = chrome.runtime.getURL("youtube_extension_citation.html");
 
-    fetch(url)
+function loadPage(url, containerId) {
+    fetch(chrome.runtime.getURL(url))
         .then(response => response.text())
         .then(html => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+            document.getElementById(containerId).innerHTML = html;
 
-            const addNewCitationBtn = doc.getElementById('add-citation-btn');
-            const listViewBtn = doc.getElementById('list-view-btn');
-            if (addNewCitationBtn) addNewCitationBtn.remove();
-            if (listViewBtn) listViewBtn.remove();
-
-            container.innerHTML = doc.body.innerHTML;
-
+            // Inject CSS dynamically
             const styleLink = document.createElement("link");
             styleLink.rel = "stylesheet";
             styleLink.href = chrome.runtime.getURL("youtube_extension_style.css");
             document.head.appendChild(styleLink);
 
+            // Setup form listeners
             setupFormListeners();
         })
         .catch(error => console.error("Error loading citation form:", error));
 }
+
+function setupFormListeners() {
+    const form = document.getElementById('citation-form');
+    if (form && !form.dataset.listener) {
+        form.dataset.listener = "true";
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Citation Submitted!');
+            form.reset();
+        });
+    }
+
+    const requestForm = document.getElementById('request-form');
+    if (requestForm && !requestForm.dataset.listener) {
+        requestForm.dataset.listener = "true";
+        requestForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Citation Request Submitted!');
+            requestForm.reset();
+        });
+    }
+}
+
 
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
@@ -220,11 +247,21 @@ function timeToSeconds(time) {
 
 
 function handleCitationRequest(request) {
-    // Handle citation request
-    console.log("Citation Request Details:", request);
+    console.log("Citation Request Selected:", request);
 
-    // Example: Open citation form with pre-filled details
-    alert(`Citing request from ${request.username} at ${request.timestampStart} - ${request.timestampEnd}`);
+    // Switch to "Add Citation" tab
+    document.getElementById("add-citation-btn").click(); 
+
+   
+    setTimeout(() => {
+        const startTimestampField = document.getElementById("timestamp1");
+        const endTimestampField = document.getElementById("timestamp2");
+        const citationContentField = document.getElementById("citation-content");
+
+        if (startTimestampField) startTimestampField.value = request.timestampStart;
+        if (endTimestampField) endTimestampField.value = request.timestampEnd;
+        if (citationContentField) citationContentField.value = `Reason: ${request.reason}`;
+    }, 300); 
 }
 
 
