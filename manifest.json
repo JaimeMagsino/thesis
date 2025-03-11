@@ -3,7 +3,8 @@
     "name": "YouTube Citation Extension",
     "version": "1.0",
     "description": "Extension to add and manage citations on YouTube videos.",
-    "permissions": ["activeTab", "scripting"],
+    "permissions": ["activeTab", "scripting", "storage"],
+    "host_permissions": ["https://thesis-yt-ext-default-rtdb.firebaseio.com/*"],
     "content_scripts": [
         {
             "matches": ["*://www.youtube.com/watch*"],
@@ -13,7 +14,14 @@
     ],
     "web_accessible_resources": [
         {
-            "resources": ["content.html", "youtube_extension_citation.html", "youtube_extension_style.css","youtube_extension_citation.js"],
+            "resources": [
+                "content.html", 
+                "youtube_extension_citation.html", 
+                "youtube_extension_request.html",
+                "youtube_extension_style.css",
+                "youtube_extension_citation.js",
+                "firebase-init.js"
+            ],
             "matches": ["<all_urls>"]
         }
     ],
@@ -22,7 +30,9 @@
         "default_icon": {
             "16": "icon16.png",
             "48": "icon48.png"
-            
         }
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'"
     }
 }
