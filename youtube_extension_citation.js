@@ -26,74 +26,159 @@ document.addEventListener("DOMContentLoaded", () => {
     setupFormListeners();
 }); */
 
-// youtube-extension-citation.js
-import { database, ref, push, set, get, onValue } from "./firebase-init.js";
+/* // Function to attach event listeners for forms
+function setupFormListeners() {
+  const form = document.getElementById('citation-form');
+  if (form && !form.dataset.listener) {
+    form.dataset.listener = "true"; // Prevent duplicate event listeners
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-document.addEventListener("DOMContentLoaded", function () {
-    setupCitationForm();
-    fetchCitations();
+      // Get form data
+      const citationData = {
+        title: form['citation-title'].value,
+        startTimestamp: form['timestamp1'].value,
+        endTimestamp: form['timestamp2'].value,
+        content: form['citation-content'].value,
+        datePosted: new Date().toISOString()
+      };
+
+      try {
+        // Send a message to the content script to add the citation
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "addCitation",
+            data: citationData
+          }, (response) => {
+            if (response && response.success) {
+              alert('Citation Submitted!');
+              form.reset();
+            } else {
+              alert('Error submitting citation. Please try again.');
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error submitting citation: ", error);
+        alert('Error submitting citation. Please try again.');
+      }
+    });
+  }
+
+  const requestForm = document.getElementById('request-form');
+  if (requestForm && !requestForm.dataset.listener) {
+    requestForm.dataset.listener = "true"; // Prevent duplicate event listeners
+    requestForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Get form data
+      const requestData = {
+        startTimestamp: requestForm['request-timestamp1'].value,
+        endTimestamp: requestForm['request-timestamp2'].value,
+        reason: requestForm['request-reason'].value,
+        dateRequested: new Date().toISOString()
+      };
+
+      try {
+        // Send a message to the content script to add the citation request
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "addCitationRequest",
+            data: requestData
+          }, (response) => {
+            if (response && response.success) {
+              alert('Citation Request Submitted!');
+              requestForm.reset();
+            } else {
+              alert('Error submitting citation request. Please try again.');
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error submitting citation request: ", error);
+        alert('Error submitting citation request. Please try again.');
+      }
+    });
+  }
+} */
+
+// Function to attach event listeners for forms
+function setupFormListeners() {
+  const form = document.getElementById('citation-form');
+  if (form && !form.dataset.listener) {
+    form.dataset.listener = "true"; // Prevent duplicate event listeners
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Get form data
+      const citationData = {
+        title: form['citation-title'].value,
+        startTimestamp: form['timestamp1'].value,
+        endTimestamp: form['timestamp2'].value,
+        content: form['citation-content'].value,
+        datePosted: new Date().toISOString()
+      };
+
+      try {
+        // Send a message to the content script to add the citation
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "addCitation",
+            data: citationData
+          }, (response) => {
+            if (response && response.success) {
+              alert('Citation Submitted!');
+              form.reset();
+            } else {
+              alert('Error submitting citation. Please try again.');
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error submitting citation: ", error);
+        alert('Error submitting citation. Please try again.');
+      }
+    });
+  }
+
+  const requestForm = document.getElementById('request-form');
+  if (requestForm && !requestForm.dataset.listener) {
+    requestForm.dataset.listener = "true"; // Prevent duplicate event listeners
+    requestForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Get form data
+      const requestData = {
+        startTimestamp: requestForm['request-timestamp1'].value,
+        endTimestamp: requestForm['request-timestamp2'].value,
+        reason: requestForm['request-reason'].value,
+        dateRequested: new Date().toISOString()
+      };
+
+      try {
+        // Send a message to the content script to add the citation request
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "addCitationRequest",
+            data: requestData
+          }, (response) => {
+            if (response && response.success) {
+              alert('Citation Request Submitted!');
+              requestForm.reset();
+            } else {
+              alert('Error submitting citation request. Please try again.');
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error submitting citation request: ", error);
+        alert('Error submitting citation request. Please try again.');
+      }
+    });
+  }
+}
+
+// Run `setupFormListeners()` after the page is fully loaded
+document.addEventListener("DOMContentLoaded", () => {
+  setupFormListeners();
 });
-
-function setupCitationForm() {
-    const form = document.getElementById("citation-form");
-    if (!form) return;
-
-    form.addEventListener("submit", (event) => {
-        event.preventDefault();
-        
-        const timestampStart = document.getElementById("timestamp1").value;
-        const timestampEnd = document.getElementById("timestamp2").value;
-        const reason = document.getElementById("citation-content").value;
-        const videoUrl = window.location.href; // Get the current YouTube video URL
-
-        if (!timestampStart || !timestampEnd || !reason) {
-            alert("Please fill out all fields.");
-            return;
-        }
-
-        // Reference to Firebase database
-        const citationsRef = ref(database, "citations");
-        
-        // Push new citation to database
-        push(citationsRef, {
-            timestampStart,
-            timestampEnd,
-            reason,
-            videoUrl,
-            dateSubmitted: new Date().toISOString()
-        }).then(() => {
-            alert("Citation added successfully!");
-            form.reset();
-        }).catch((error) => {
-            console.error("Error adding citation:", error);
-        });
-    });
-}
-
-function fetchCitations() {
-    const citationsRef = ref(database, "citations");
-
-    onValue(citationsRef, (snapshot) => {
-        const citationsContainer = document.getElementById("citations-container");
-        if (!citationsContainer) return;
-
-        citationsContainer.innerHTML = "";
-
-        const citations = snapshot.val();
-        if (!citations) {
-            citationsContainer.innerHTML = "<p>No citations available.</p>";
-            return;
-        }
-
-        Object.values(citations).forEach((citation) => {
-            const citationElement = document.createElement("div");
-            citationElement.innerHTML = `
-                <p><strong>Timestamp Start:</strong> ${citation.timestampStart}</p>
-                <p><strong>Timestamp End:</strong> ${citation.timestampEnd}</p>
-                <p><strong>Reason:</strong> ${citation.reason}</p>
-                <p><strong>Video:</strong> <a href="${citation.videoUrl}" target="_blank">${citation.videoUrl}</a></p>
-            `;
-            citationsContainer.appendChild(citationElement);
-        });
-    });
-}

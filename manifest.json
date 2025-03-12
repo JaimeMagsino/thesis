@@ -5,34 +5,37 @@
     "description": "Extension to add and manage citations on YouTube videos.",
     "permissions": ["activeTab", "scripting", "storage"],
     "host_permissions": ["https://thesis-yt-ext-default-rtdb.firebaseio.com/*"],
+    
     "content_scripts": [
-        {
-            "matches": ["*://www.youtube.com/watch*"],
-            "js": ["content.js"],
-            "run_at": "document_idle"
-        }
+      {
+        "matches": ["*://www.youtube.com/watch*"],
+        "js": ["dist/content.bundle.js"],
+        "type": "module",
+        "run_at": "document_idle"
+      }
     ],
     "web_accessible_resources": [
-        {
-            "resources": [
-                "content.html", 
-                "youtube_extension_citation.html", 
-                "youtube_extension_request.html",
-                "youtube_extension_style.css",
-                "youtube_extension_citation.js",
-                "firebase-init.js"
-            ],
-            "matches": ["<all_urls>"]
-        }
+      {
+        "resources": [
+          "content.html", 
+          "youtube_extension_citation.html", 
+          "youtube_extension_request.html",
+          "youtube_extension_style.css",
+          "dist/youtube_extension_citation.bundle.js",
+          "dist/firebase_init.bundle.js",
+          "dist/content.bundle.js"
+        ],
+        "matches": ["<all_urls>"]
+      }
     ],
     "action": {
-        "default_popup": "youtube_extension_citation.html",
-        "default_icon": {
-            "16": "icon16.png",
-            "48": "icon48.png"
-        }
+      "default_popup": "youtube_extension_citation.html",
+      "default_icon": {
+        "16": "icon16.png",
+        "48": "icon48.png"
+      }
     },
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'"
+      "extension_pages": "script-src 'self'; object-src 'self'"
     }
-}
+  } 

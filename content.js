@@ -1,3 +1,7 @@
+import { db } from './firebase-init.js';
+import { collection, getDocs } from "firebase/firestore";
+//import { setupFormListeners } from './formUtils.js';
+
 function insertBelowTitle() {
     const titleElement = document.querySelector("h1.style-scope.ytd-watch-metadata");
 
@@ -70,28 +74,163 @@ function loadPage(url, containerId) {
         .catch(error => console.error("Error loading citation form:", error));
 }
 
+// Listen for messages from the extension
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "addCitation") {
+      addCitation(message.data)
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          console.error("Error adding citation: ", error);
+          sendResponse({ success: false });
+        });
+      return true; // Indicates that the response will be sent asynchronously
+    }
+  
+    if (message.action === "addCitationRequest") {
+      addCitationRequest(message.data)
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          console.error("Error adding citation request: ", error);
+          sendResponse({ success: false });
+        });
+      return true; // Indicates that the response will be sent asynchronously
+    }
+  });
+  
+  // Function to add a citation to Firestore
+  async function addCitation(citationData) {
+    try {
+      const docRef = await addDoc(collection(db, "citations"), citationData);
+      console.log("Document written with ID: ", docRef.id);
+      return docRef.id; // Return the ID of the newly added document
+    } catch (error) {
+      console.error("Error adding document: ", error);
+      throw error; // Propagate the error for handling
+    }
+  }
+  
+  // Function to add a citation request to Firestore
+  async function addCitationRequest(requestData) {
+    try {
+      const docRef = await addDoc(collection(db, "requests"), requestData);
+      console.log("Document written with ID: ", docRef.id);
+      return docRef.id; // Return the ID of the newly added document
+    } catch (error) {
+      console.error("Error adding document: ", error);
+      throw error; // Propagate the error for handling
+    }
+  }
+
+  // Function to fetch all citations from Firestore
+async function fetchCitations() {
+    try {
+      const querySnapshot = await getDocs(collection(db, "citations"));
+      const citations = [];
+      querySnapshot.forEach((doc) => {
+        citations.push({ id: doc.id, ...doc.data() });
+      });
+      return citations;
+    } catch (error) {
+      console.error("Error fetching documents: ", error);
+      throw error; // Propagate the error for handling
+    }
+  }
+  
+  // Function to fetch all citation requests from Firestore
+  async function fetchCitationRequests() {
+    try {
+      const querySnapshot = await getDocs(collection(db, "requests"));
+      const requests = [];
+      querySnapshot.forEach((doc) => {
+        requests.push({ id: doc.id, ...doc.data() });
+      });
+      return requests;
+    } catch (error) {
+      console.error("Error fetching documents: ", error);
+      throw error; // Propagate the error for handling
+    }
+  }
+
+
+// Function to attach event listeners for forms
 function setupFormListeners() {
-    const form = document.getElementById('citation-form');
-    if (form && !form.dataset.listener) {
-        form.dataset.listener = "true";
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            alert('Citation Submitted!');
-            form.reset();
-        });
-    }
+  const form = document.getElementById('citation-form');
+  if (form && !form.dataset.listener) {
+    form.dataset.listener = "true"; // Prevent duplicate event listeners
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-    const requestForm = document.getElementById('request-form');
-    if (requestForm && !requestForm.dataset.listener) {
-        requestForm.dataset.listener = "true";
-        requestForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            alert('Citation Request Submitted!');
-            requestForm.reset();
+      // Get form data
+      const citationData = {
+        title: form['citation-title'].value,
+        startTimestamp: form['timestamp1'].value,
+        endTimestamp: form['timestamp2'].value,
+        content: form['citation-content'].value,
+        datePosted: new Date().toISOString()
+      };
+
+      try {
+        // Send a message to the content script to add the citation
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "addCitation",
+            data: citationData
+          }, (response) => {
+            if (response && response.success) {
+              alert('Citation Submitted!');
+              form.reset();
+            } else {
+              alert('Error submitting citation. Please try again.');
+            }
+          });
         });
-    }
+      } catch (error) {
+        console.error("Error submitting citation: ", error);
+        alert('Error submitting citation. Please try again.');
+      }
+    });
+  }
+
+  const requestForm = document.getElementById('request-form');
+  if (requestForm && !requestForm.dataset.listener) {
+    requestForm.dataset.listener = "true"; // Prevent duplicate event listeners
+    requestForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Get form data
+      const requestData = {
+        startTimestamp: requestForm['request-timestamp1'].value,
+        endTimestamp: requestForm['request-timestamp2'].value,
+        reason: requestForm['request-reason'].value,
+        dateRequested: new Date().toISOString()
+      };
+
+      try {
+        // Send a message to the content script to add the citation request
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "addCitationRequest",
+            data: requestData
+          }, (response) => {
+            if (response && response.success) {
+              alert('Citation Request Submitted!');
+              requestForm.reset();
+            } else {
+              alert('Error submitting citation request. Please try again.');
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error submitting citation request: ", error);
+        alert('Error submitting citation request. Please try again.');
+      }
+    });
+  }
 }
-
 
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
@@ -147,84 +286,48 @@ function getCurrentVideoTimestamp() {
     return video ? video.currentTime : 0;
 }
 
-
-function loadCitationRequests() {
-    let container = document.getElementById("citation-requests-container");
-
+// Updated loadCitationRequests() function to fetch data from Firestore
+async function loadCitationRequests() {
+    let container = document.getElementById('citation-requests-container');
+  
+    // Create the container if it doesn't exist
     if (!container) {
-        container = document.createElement("div");
-        container.id = "citation-requests-container";
-        document.body.appendChild(container);
+      container = document.createElement("div");
+      container.id = "citation-requests-container";
+      container.style.cssText = "margin-top: 10px;"; // Add any necessary styles
+      const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+      if (secondaryElement) {
+        secondaryElement.prepend(container); // Append it to the desired location
+      }
     }
-
-    container.innerHTML = "";
-
-    const currentTimestamp = getCurrentVideoTimestamp();
-
-    const sampleRequests = [
-        {
-            username: "UserA",
-            dateRequested: "2025-03-07",
-            timestampStart: "00:00:30",
-            timestampEnd: "00:01:00",
-            reason: "Fact-check needed on historical claim",
-            youtubeLink: "https://youtube.com/watch?v=sample1"
-        },
-        {
-            username: "UserB",
-            dateRequested: "2025-03-07",
-            timestampStart: "00:00:35",
-            timestampEnd: "00:03:00",
-            reason: "Verify scientific statement",
-            youtubeLink: "https://youtube.com/watch?v=sample2"
-        },
-        {
-            username: "UserC",
-            dateRequested: "2025-03-07",
-            timestampStart: "00:00:20",
-            timestampEnd: "00:06:00",
-            reason: "Check source for political statement",
-            youtubeLink: "https://youtube.com/watch?v=sample3"
-        }
-    ];
-
-    // Sort by most recent timestampStart, prioritizing those within the timestamp range
-    sampleRequests.sort((a, b) => {
-        const aStart = timeToSeconds(a.timestampStart);
-        const bStart = timeToSeconds(b.timestampStart);
-        const aInRange = isInTimestampRange(a);
-        const bInRange = isInTimestampRange(b);
-
-        // Prioritize in-range timestamps, then sort by most recent start time
-        if (aInRange && !bInRange) return -1;
-        if (!aInRange && bInRange) return 1;
-        return bStart - aStart; // Sort by most recent timestampStart
-    });
-
-    sampleRequests.forEach(request => {
+  
+    container.innerHTML = ""; // Clear the container before updating
+  
+    try {
+      // Fetch citation requests from Firestore
+      const requests = await fetchCitationRequests();
+  
+      // Display each citation request
+      requests.forEach((request) => {
         const requestElement = document.createElement("div");
         requestElement.style.cssText = `
-            border: 1px solid #ddd; 
-            padding: 10px; 
-            margin: 5px 0; 
-            background: ${isInTimestampRange(request) ? '#fffae6' : '#fff'}; 
+          border: 1px solid #ddd; 
+          padding: 10px; 
+          margin: 5px 0; 
+          background: #fff; 
         `;
         requestElement.innerHTML = `
-            <p><strong>Username:</strong> ${request.username}</p>
-            <p><strong>Date Requested:</strong> ${request.dateRequested}</p>
-            <p><strong>Timestamp Start:</strong> ${request.timestampStart}</p>
-            <p><strong>Timestamp End:</strong> ${request.timestampEnd}</p>
-            <p><strong>Reason:</strong> ${request.reason}</p>
-            <p><strong>Video:</strong> <a href="${request.youtubeLink}" target="_blank">${request.youtubeLink}</a></p>
-            <button class="cite-btn">Cite</button>
+          <p><strong>Start Timestamp:</strong> ${request.startTimestamp}</p>
+          <p><strong>End Timestamp:</strong> ${request.endTimestamp}</p>
+          <p><strong>Reason:</strong> ${request.reason}</p>
+          <p><strong>Date Requested:</strong> ${request.dateRequested}</p>
         `;
-
-        const citeButton = requestElement.querySelector(".cite-btn");
-        citeButton.addEventListener("click", () => handleCitationRequest(request));
-
         container.appendChild(requestElement);
-    });
-}
+      });
+    } catch (error) {
+      console.error("Error loading citation requests: ", error);
+    }
+  }
 
 // Helper function to check if a request is within the current timestamp range
 function isInTimestampRange(request) {
@@ -234,24 +337,10 @@ function isInTimestampRange(request) {
     return currentTimestamp >= startTime && currentTimestamp <= endTime;
 }
 
-
-// Helper function to check if a request is within the current timestamp
-function isInTimestampRange(request) {
-    const currentTimestamp = getCurrentVideoTimestamp();
-    const startTime = timeToSeconds(request.timestampStart);
-    const endTime = timeToSeconds(request.timestampEnd);
-    return currentTimestamp >= startTime && currentTimestamp <= endTime;
-}
-
-
-
 function timeToSeconds(time) {
     const parts = time.split(":").map(Number);
     return parts[0] * 3600 + parts[1] * 60 + parts[2];
 }
-
-
-
 
 function handleCitationRequest(request) {
     console.log("Citation Request Selected:", request);
@@ -271,99 +360,55 @@ function handleCitationRequest(request) {
     }, 300); 
 }
 
-
-function loadCitations() {
-    let container = document.getElementById("citations-container");
+// Updated loadCitations() function to fetch data from Firestore
+async function loadCitations() {
+    let container = document.getElementById('citations-container');
 
     // Create the container if it doesn't exist
     if (!container) {
         container = document.createElement("div");
         container.id = "citations-container";
-        document.body.appendChild(container); // Append it to the body or a specific parent element
+        container.style.cssText = "margin-top: 10px;"; // Add any necessary styles
+        const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+        if (secondaryElement) {
+        secondaryElement.prepend(container); // Append it to the desired location
+        }
     }
 
-    container.innerHTML = "";
+    container.innerHTML = ""; // Clear the container before updating
 
-    const currentTimestamp = getCurrentVideoTimestamp();
+    try {
+        // Fetch citations from Firestore
+        const citations = await fetchCitations();
 
-    const sampleCitations = [
-        {
-            username: "Scholar456",
-            datePosted: "2025-03-05",
-            timestampStart: "00:00:15",
-            timestampEnd: "00:04:00",
-            reasonForCitation: "This claim lacks credible sources and needs verification.",
-            likes: 15,
-            dislikes: 2,
-            citationSource: "https://example.com/source",
-            youtubeLink: "https://youtube.com/watch?v=sample2"
-        },
-        {
-            username: "Researcher789",
-            datePosted: "2025-03-06",
-            timestampStart: "00:00:30",
-            timestampEnd: "00:02:00",
-            reasonForCitation: "Statistical data needs verification.",
-            likes: 10,
-            dislikes: 3,
-            citationSource: "https://example.com/data",
-            youtubeLink: "https://youtube.com/watch?v=sample3"
-        },
-        {
-            username: "Expert101",
-            datePosted: "2025-03-07",
-            timestampStart: "00:00:20",
-            timestampEnd: "00:06:30",
-            reasonForCitation: "Claim is misleading, needs context.",
-            likes: 25,
-            dislikes: 1,
-            citationSource: "https://example.com/context",
-            youtubeLink: "https://youtube.com/watch?v=sample4"
-        }
-    ];
-
-    // Sort by most recent timestampStart, prioritizing those within the timestamp range
-    sampleCitations.sort((a, b) => {
-        const aStart = timeToSeconds(a.timestampStart);
-        const bStart = timeToSeconds(b.timestampStart);
-        const aInRange = isInTimestampRange(a);
-        const bInRange = isInTimestampRange(b);
-
-        // Prioritize in-range citations, then sort by most recent start time
-        if (aInRange && !bInRange) return -1;
-        if (!aInRange && bInRange) return 1;
-        return bStart - aStart; // Sort by most recent timestampStart
-    });
-
-    sampleCitations.forEach(citation => {
+        // Display each citation
+        citations.forEach((citation) => {
         const citationElement = document.createElement("div");
         citationElement.style.cssText = `
             border: 1px solid #ddd; 
             padding: 10px; 
             margin: 5px 0; 
-            background: ${isInTimestampRange(citation) ? '#fffae6' : '#fff'}; 
+            background: #fff; 
         `;
         citationElement.innerHTML = `
-            <p><strong>Username:</strong> ${citation.username}</p>
+            <p><strong>Title:</strong> ${citation.title}</p>
+            <p><strong>Start Timestamp:</strong> ${citation.startTimestamp}</p>
+            <p><strong>End Timestamp:</strong> ${citation.endTimestamp}</p>
+            <p><strong>Content:</strong> ${citation.content}</p>
             <p><strong>Date Posted:</strong> ${citation.datePosted}</p>
-            <p><strong>Timestamp Start:</strong> ${citation.timestampStart}</p>
-            <p><strong>Timestamp End:</strong> ${citation.timestampEnd}</p>
-            <p><strong>Reason for Citation:</strong> ${citation.reasonForCitation}</p>
-            <p><strong>Likes:</strong> ${citation.likes}</p>
-            <p><strong>Dislikes:</strong> ${citation.dislikes}</p>
-            <p><strong>Source:</strong> <a href="${citation.citationSource}" target="_blank">${citation.citationSource}</a></p>
-            <p><strong>Video:</strong> <a href="${citation.youtubeLink}" target="_blank">${citation.youtubeLink}</a></p>
         `;
-
         container.appendChild(citationElement);
-    });
+        });
+    } catch (error) {
+        console.error("Error loading citations: ", error);
+    }
 }
 
-setInterval(() => {
-    loadCitationRequests();
-    loadCitations();
-}, 1000); // Updates every 1 seconds
-
+// Update the setInterval to call the async functions
+setInterval(async () => {
+    await loadCitationRequests();
+    await loadCitations();
+  }, 5000); // Updates every 5 seconds
 
 function forceUpdateTitle() {
     const titleElement = document.getElementById("citation-title");
