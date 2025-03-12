@@ -271,11 +271,11 @@ function loadCitations() {
 
     const currentTimestamp = getCurrentVideoTimestamp();
 
-    const sampleCitations = [
+    let sampleCitations = [
         {
             username: "Scholar456",
             datePosted: "2025-03-05",
-            timestampStart: "00:00:15",
+            timestampStart: "00:03:15",
             timestampEnd: "00:04:00",
             reasonForCitation: "This claim lacks credible sources and needs verification.",
             likes: 15,
@@ -286,7 +286,7 @@ function loadCitations() {
         {
             username: "Researcher789",
             datePosted: "2025-03-06",
-            timestampStart: "00:00:30",
+            timestampStart: "00:01:10",
             timestampEnd: "00:02:00",
             reasonForCitation: "Statistical data needs verification.",
             likes: 10,
@@ -297,7 +297,7 @@ function loadCitations() {
         {
             username: "Expert101",
             datePosted: "2025-03-07",
-            timestampStart: "00:00:20",
+            timestampStart: "00:05:10",
             timestampEnd: "00:06:30",
             reasonForCitation: "Claim is misleading, needs context.",
             likes: 25,
@@ -314,13 +314,12 @@ function loadCitations() {
         const aInRange = isInTimestampRange(a);
         const bInRange = isInTimestampRange(b);
 
-        // Prioritize in-range citations, then sort by most recent start time
         if (aInRange && !bInRange) return -1;
         if (!aInRange && bInRange) return 1;
-        return bStart - aStart; // Sort by most recent timestampStart
+        return bStart - aStart; 
     });
 
-    sampleCitations.forEach(citation => {
+    sampleCitations.forEach((citation, index) => {
         const citationElement = document.createElement("div");
         citationElement.style.cssText = `
             border: 1px solid #ddd; 
@@ -334,15 +333,35 @@ function loadCitations() {
             <p><strong>Timestamp Start:</strong> ${citation.timestampStart}</p>
             <p><strong>Timestamp End:</strong> ${citation.timestampEnd}</p>
             <p><strong>Reason for Citation:</strong> ${citation.reasonForCitation}</p>
-            <p><strong>Likes:</strong> ${citation.likes}</p>
-            <p><strong>Dislikes:</strong> ${citation.dislikes}</p>
+            <p><strong>Likes:</strong> <span id="likes-${index}">${citation.likes}</span></p>
+            <p><strong>Dislikes:</strong> <span id="dislikes-${index}">${citation.dislikes}</span></p>
+            <button class="like-btn" data-index="${index}">👍 Like</button>
+            <button class="dislike-btn" data-index="${index}">👎 Dislike</button>
             <p><strong>Source:</strong> <a href="${citation.citationSource}" target="_blank">${citation.citationSource}</a></p>
             <p><strong>Video:</strong> <a href="${citation.youtubeLink}" target="_blank">${citation.youtubeLink}</a></p>
         `;
 
         container.appendChild(citationElement);
     });
+
+    // Add event listeners for like/dislike buttons
+    document.querySelectorAll(".like-btn").forEach(button => {
+        button.addEventListener("click", (event) => {
+            const index = event.target.getAttribute("data-index");
+            sampleCitations[index].likes += 1;
+            document.getElementById(`likes-${index}`).textContent = sampleCitations[index].likes;
+        });
+    });
+
+    document.querySelectorAll(".dislike-btn").forEach(button => {
+        button.addEventListener("click", (event) => {
+            const index = event.target.getAttribute("data-index");
+            sampleCitations[index].dislikes += 1;
+            document.getElementById(`dislikes-${index}`).textContent = sampleCitations[index].dislikes;
+        });
+    });
 }
+
 
 setInterval(() => {
     loadCitationRequests();
