@@ -1,184 +1,99 @@
-/* // Function to attach event listeners for forms
+// youtube_extension_citation.js
+import { db } from './firebase-init.js';
+import { collection, addDoc, getDocs } from "firebase/firestore";
+
+// Function to attach event listeners for forms
 function setupFormListeners() {
     const form = document.getElementById('citation-form');
     if (form && !form.dataset.listener) {
         form.dataset.listener = "true"; // Prevent duplicate event listeners
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            alert('Citation Submitted!');
-            form.reset();
+            e.stopImmediatePropagation();
+            const citationData = {
+                title: form['citation-title'].value,
+                timestampStart: form['timestamp1'].value,
+                timestampEnd: form['timestamp2'].value,
+                content: form['citation-content'].value,
+                datePosted: new Date().toISOString()
+            };
+            try {
+                await addDoc(collection(db, "citations"), citationData);
+                alert('Citation Submitted!');
+                form.reset();
+            } catch (error) {
+                console.error("Error adding citation: ", error);
+            }
         });
     }
 
     const requestForm = document.getElementById('request-form');
     if (requestForm && !requestForm.dataset.listener) {
         requestForm.dataset.listener = "true"; // Prevent duplicate event listeners
-        requestForm.addEventListener('submit', (e) => {
+        requestForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            alert('Citation Request Submitted!');
-            requestForm.reset();
+            e.stopImmediatePropagation();
+            const requestData = {
+                timestampStart: requestForm['request-timestamp1'].value,
+                timestampEnd: requestForm['request-timestamp2'].value,
+                reason: requestForm['request-reason'].value,
+                dateRequested: new Date().toISOString()
+            };
+            try {
+                await addDoc(collection(db, "citationRequests"), requestData);
+                alert('Citation Request Submitted!');
+                requestForm.reset();
+            } catch (error) {
+                console.error("Error adding citation request: ", error);
+            }
         });
     }
+}
+
+// Function to load citations from Firestore
+async function loadCitations() {
+    const container = document.getElementById('citations-container');
+    if (!container) return;
+
+    const querySnapshot = await getDocs(collection(db, "citations"));
+    container.innerHTML = '';
+    querySnapshot.forEach((doc) => {
+        const citation = doc.data();
+        const citationElement = document.createElement('div');
+        citationElement.innerHTML = `
+            <p><strong>Title:</strong> ${citation.title}</p>
+            <p><strong>Start Timestamp:</strong> ${citation.timestampStart}</p>
+            <p><strong>End Timestamp:</strong> ${citation.timestampEnd}</p>
+            <p><strong>Content:</strong> ${citation.content}</p>
+            <p><strong>Date Posted:</strong> ${citation.datePosted}</p>
+        `;
+        container.appendChild(citationElement);
+    });
+}
+
+// Function to load citation requests from Firestore
+async function loadCitationRequests() {
+    const container = document.getElementById('citation-requests-container');
+    if (!container) return;
+
+    const querySnapshot = await getDocs(collection(db, "citationRequests"));
+    container.innerHTML = '';
+    querySnapshot.forEach((doc) => {
+        const request = doc.data();
+        const requestElement = document.createElement('div');
+        requestElement.innerHTML = `
+            <p><strong>Start Timestamp:</strong> ${request.timestampStart}</p>
+            <p><strong>End Timestamp:</strong> ${request.timestampEnd}</p>
+            <p><strong>Reason:</strong> ${request.reason}</p>
+            <p><strong>Date Requested:</strong> ${request.dateRequested}</p>
+        `;
+        container.appendChild(requestElement);
+    });
 }
 
 // Run `setupFormListeners()` after the page is fully loaded
 document.addEventListener("DOMContentLoaded", () => {
     setupFormListeners();
-}); */
-
-/* // Function to attach event listeners for forms
-function setupFormListeners() {
-  const form = document.getElementById('citation-form');
-  if (form && !form.dataset.listener) {
-    form.dataset.listener = "true"; // Prevent duplicate event listeners
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      // Get form data
-      const citationData = {
-        title: form['citation-title'].value,
-        startTimestamp: form['timestamp1'].value,
-        endTimestamp: form['timestamp2'].value,
-        content: form['citation-content'].value,
-        datePosted: new Date().toISOString()
-      };
-
-      try {
-        // Send a message to the content script to add the citation
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: "addCitation",
-            data: citationData
-          }, (response) => {
-            if (response && response.success) {
-              alert('Citation Submitted!');
-              form.reset();
-            } else {
-              alert('Error submitting citation. Please try again.');
-            }
-          });
-        });
-      } catch (error) {
-        console.error("Error submitting citation: ", error);
-        alert('Error submitting citation. Please try again.');
-      }
-    });
-  }
-
-  const requestForm = document.getElementById('request-form');
-  if (requestForm && !requestForm.dataset.listener) {
-    requestForm.dataset.listener = "true"; // Prevent duplicate event listeners
-    requestForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      // Get form data
-      const requestData = {
-        startTimestamp: requestForm['request-timestamp1'].value,
-        endTimestamp: requestForm['request-timestamp2'].value,
-        reason: requestForm['request-reason'].value,
-        dateRequested: new Date().toISOString()
-      };
-
-      try {
-        // Send a message to the content script to add the citation request
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: "addCitationRequest",
-            data: requestData
-          }, (response) => {
-            if (response && response.success) {
-              alert('Citation Request Submitted!');
-              requestForm.reset();
-            } else {
-              alert('Error submitting citation request. Please try again.');
-            }
-          });
-        });
-      } catch (error) {
-        console.error("Error submitting citation request: ", error);
-        alert('Error submitting citation request. Please try again.');
-      }
-    });
-  }
-} */
-
-// Function to attach event listeners for forms
-function setupFormListeners() {
-  const form = document.getElementById('citation-form');
-  if (form && !form.dataset.listener) {
-    form.dataset.listener = "true"; // Prevent duplicate event listeners
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      // Get form data
-      const citationData = {
-        title: form['citation-title'].value,
-        startTimestamp: form['timestamp1'].value,
-        endTimestamp: form['timestamp2'].value,
-        content: form['citation-content'].value,
-        datePosted: new Date().toISOString()
-      };
-
-      try {
-        // Send a message to the content script to add the citation
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: "addCitation",
-            data: citationData
-          }, (response) => {
-            if (response && response.success) {
-              alert('Citation Submitted!');
-              form.reset();
-            } else {
-              alert('Error submitting citation. Please try again.');
-            }
-          });
-        });
-      } catch (error) {
-        console.error("Error submitting citation: ", error);
-        alert('Error submitting citation. Please try again.');
-      }
-    });
-  }
-
-  const requestForm = document.getElementById('request-form');
-  if (requestForm && !requestForm.dataset.listener) {
-    requestForm.dataset.listener = "true"; // Prevent duplicate event listeners
-    requestForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      // Get form data
-      const requestData = {
-        startTimestamp: requestForm['request-timestamp1'].value,
-        endTimestamp: requestForm['request-timestamp2'].value,
-        reason: requestForm['request-reason'].value,
-        dateRequested: new Date().toISOString()
-      };
-
-      try {
-        // Send a message to the content script to add the citation request
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: "addCitationRequest",
-            data: requestData
-          }, (response) => {
-            if (response && response.success) {
-              alert('Citation Request Submitted!');
-              requestForm.reset();
-            } else {
-              alert('Error submitting citation request. Please try again.');
-            }
-          });
-        });
-      } catch (error) {
-        console.error("Error submitting citation request: ", error);
-        alert('Error submitting citation request. Please try again.');
-      }
-    });
-  }
-}
-
-// Run `setupFormListeners()` after the page is fully loaded
-document.addEventListener("DOMContentLoaded", () => {
-  setupFormListeners();
+    loadCitations();
+    loadCitationRequests();
 });
