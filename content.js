@@ -219,30 +219,18 @@ function insertCitationButtons() {
     loadCitationRequests();
 
     // Add event listener for sort options
-    document.getElementById('sort-options').addEventListener('change', async (e) => {
+    document.getElementById('sort-options').addEventListener('change', (e) => {
         currentSortOption = e.target.value;
-        // Reload citations when sorting by likes
-        if (currentSortOption === 'likes') {
-            const videoId = new URLSearchParams(window.location.search).get('v');
-            if (videoId) {
-                try {
-                    const response = await chrome.runtime.sendMessage({
-                        type: 'getCitations',
-                        videoId: videoId
-                    });
-                    if (response.success) {
-                        currentCitations = response.citations || [];
-                    }
-                } catch (error) {
-                    console.error("Error reloading citations:", error);
-                }
-            }
-        }
-        // Refresh the current view
-        if (document.getElementById('citation-requests-container').style.display === 'none') {
-            loadCitations();
-        } else {
-            loadCitationRequests();
+        const citationsContainer = document.getElementById('citations-container');
+        const requestsContainer = document.getElementById('citation-requests-container');
+        
+        // Update the current view immediately without reloading
+        if (citationsContainer.style.display !== 'none') {
+            const sortedCitations = sortItems(currentCitations, currentSortOption, 'citation');
+            updateCitationsList(sortedCitations, citationsContainer);
+        } else if (requestsContainer.style.display !== 'none') {
+            const sortedRequests = sortItems(currentRequests, currentSortOption, 'request');
+            updateRequestsList(sortedRequests, requestsContainer);
         }
     });
 
@@ -532,6 +520,128 @@ async function handleVote(citationId, voteType) {
     }
 }
 
+// Helper function to update citations list
+function updateCitationsList(citations, container) {
+    if (!container) return;
+    
+    const fragment = document.createDocumentFragment();
+    
+    if (citations.length === 0) {
+        const noCitations = document.createElement('p');
+        noCitations.textContent = 'No citations found for this video.';
+        fragment.appendChild(noCitations);
+    } else {
+        citations.forEach(citation => {
+            const citationElement = document.createElement("div");
+            citationElement.className = "citation-item";
+            citationElement.dataset.start = parseTimestamp(citation.timestampStart);
+            citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
+            citationElement.style.cssText = `
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin-bottom: 10px;
+                border-radius: 5px;
+                background-color: white;
+                transition: background-color 0.3s;
+            `;
+
+            const userVote = userVotes[citation.id] || null;
+            
+            citationElement.innerHTML = `
+                <p><strong>Source:</strong> ${citation.source}</p>
+                <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+                <p><strong>Added by:</strong> ${citation.username}</p>
+                <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).format(new Date(citation.dateAdded))}</p>
+                <p>${citation.description}</p>
+                <div class="vote-controls" data-citation-id="${citation.id}">
+                    <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
+                            title="${userVote === 'like' ? 'Remove like' : 'Like'}">
+                        <span class="vote-icon">👍</span>
+                        <span class="vote-count">${citation.likes || 0}</span>
+                    </button>
+                    <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
+                            title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
+                        <span class="vote-icon">👎</span>
+                        <span class="vote-count">${citation.dislikes || 0}</span>
+                    </button>
+                </div>
+            `;
+
+            // Add vote event listeners
+            const voteControls = citationElement.querySelector('.vote-controls');
+            const likeBtn = voteControls.querySelector('.like-btn');
+            const dislikeBtn = voteControls.querySelector('.dislike-btn');
+
+            likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
+            dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
+            
+            fragment.appendChild(citationElement);
+        });
+    }
+
+    container.innerHTML = '';
+    container.appendChild(fragment);
+    updateHighlighting();
+}
+
+// Helper function to update requests list
+function updateRequestsList(requests, container) {
+    if (!container) return;
+    
+    const fragment = document.createDocumentFragment();
+    
+    if (requests.length === 0) {
+        const noRequests = document.createElement('p');
+        noRequests.textContent = 'No citation requests yet.';
+        fragment.appendChild(noRequests);
+    } else {
+        requests.forEach(request => {
+            const requestElement = document.createElement("div");
+            requestElement.className = "citation-request";
+            requestElement.dataset.start = parseTimestamp(request.timestampStart);
+            requestElement.dataset.end = parseTimestamp(request.timestampEnd);
+            requestElement.style.cssText = `
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 5px;
+                background-color: #f8f9fa;
+                transition: background-color 0.3s;
+            `;
+            
+            requestElement.innerHTML = `
+                <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
+                <p><strong>Reason:</strong> ${request.reason}</p>
+                <p><strong>Requested by:</strong> ${request.username}</p>
+                <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).format(new Date(request.timestamp))}</p>
+                <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
+                    Respond with Citation
+                </button>
+            `;
+            
+            fragment.appendChild(requestElement);
+        });
+    }
+
+    container.innerHTML = '';
+    container.appendChild(fragment);
+    updateHighlighting();
+}
+
 // Cache for current data to prevent unnecessary updates
 let currentCitations = [];
 let currentRequests = [];
@@ -553,7 +663,11 @@ function sortItems(items, sortBy, itemType = 'citation') {
     return [...items].sort((a, b) => {
         switch(sortBy) {
             case 'timestamp':
-                return new Date(b.dateAdded || b.timestamp) - new Date(a.dateAdded || a.timestamp);
+                // Get the timestamp for each item
+                const dateA = new Date(a.dateAdded || a.timestamp).getTime();
+                const dateB = new Date(b.dateAdded || b.timestamp).getTime();
+                // Sort by most recent first
+                return dateB - dateA;
             case 'likes':
                 const likesA = parseInt(a.likes || 0);
                 const likesB = parseInt(b.likes || 0);
