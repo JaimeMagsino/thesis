@@ -262,6 +262,7 @@ textarea {
 
 .vote-btn:hover {
     background-color: #f0f0f0;
+    transform: scale(1.02);
 }
 
 .vote-btn.active {
@@ -270,8 +271,17 @@ textarea {
     color: #2196f3;
 }
 
+.vote-btn.active:hover {
+    background-color: #bbdefb;
+}
+
 .vote-icon {
     font-size: 16px;
+    transition: transform 0.2s ease;
+}
+
+.vote-btn:hover .vote-icon {
+    transform: scale(1.1);
 }
 
 .vote-count {

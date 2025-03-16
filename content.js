@@ -314,20 +314,29 @@ async function loadCitations() {
     console.log("Loading citations for video:", videoId);
 
     try {
-        const response = await chrome.runtime.sendMessage({
-            type: 'getCitations',
-            videoId: videoId
-        });
+        // Get citations and user votes in parallel
+        const [citationsResponse, votesResponse] = await Promise.all([
+            chrome.runtime.sendMessage({
+                type: 'getCitations',
+                videoId: videoId
+            }),
+            chrome.runtime.sendMessage({
+                type: 'getUserVotes',
+                videoId: videoId
+            })
+        ]);
 
-        if (!response.success) {
-            throw new Error(response.error);
+        if (!citationsResponse.success) {
+            throw new Error(citationsResponse.error);
         }
 
-        const citations = response.citations || [];
+        const citations = citationsResponse.citations || [];
+        userVotes = votesResponse.success ? votesResponse.votes : {};
         
         // Only update DOM if container is visible and data has changed
         if (container.style.display !== 'none' && JSON.stringify(citations) !== JSON.stringify(currentCitations)) {
             currentCitations = citations;
+
             requestAnimationFrame(() => {
                 container.innerHTML = '';
                 const fragment = document.createDocumentFragment();
@@ -350,6 +359,8 @@ async function loadCitations() {
                             background-color: white;
                             transition: background-color 0.3s;
                         `;
+
+                        const userVote = userVotes[citation.id] || null;
                         
                         citationElement.innerHTML = `
                             <p><strong>Source:</strong> ${citation.source}</p>
@@ -365,11 +376,13 @@ async function loadCitations() {
                             }).format(new Date(citation.dateAdded))}</p>
                             <p>${citation.description}</p>
                             <div class="vote-controls" data-citation-id="${citation.id}">
-                                <button class="vote-btn like-btn ${citation.userVote === 'like' ? 'active' : ''}" title="Like">
+                                <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
+                                        title="${userVote === 'like' ? 'Remove like' : 'Like'}">
                                     <span class="vote-icon">👍</span>
                                     <span class="vote-count">${citation.likes || 0}</span>
                                 </button>
-                                <button class="vote-btn dislike-btn ${citation.userVote === 'dislike' ? 'active' : ''}" title="Dislike">
+                                <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
+                                        title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
                                     <span class="vote-icon">👎</span>
                                     <span class="vote-count">${citation.dislikes || 0}</span>
                                 </button>
@@ -413,40 +426,49 @@ async function handleVote(citationId, voteType) {
     let likes = parseInt(likeCount.textContent);
     let dislikes = parseInt(dislikeCount.textContent);
 
-    // Get current button states
-    const wasLiked = likeBtn.classList.contains('active');
-    const wasDisliked = dislikeBtn.classList.contains('active');
+    // Get previous vote
+    const previousVote = userVotes[citationId];
 
-    // Update UI and counts based on the vote
+    // Update counts and UI based on the vote
     if (voteType === 'like') {
-        if (wasLiked) {
+        if (previousVote === 'like') {
             // Unlike
-            likeBtn.classList.remove('active');
             likes--;
+            likeBtn.classList.remove('active');
+            likeBtn.title = 'Like';
+            userVotes[citationId] = null;
         } else {
             // Like
-            likeBtn.classList.add('active');
             likes++;
-            if (wasDisliked) {
-                // Remove dislike if it was disliked
-                dislikeBtn.classList.remove('active');
+            likeBtn.classList.add('active');
+            likeBtn.title = 'Remove like';
+            if (previousVote === 'dislike') {
+                // Remove previous dislike
                 dislikes--;
+                dislikeBtn.classList.remove('active');
+                dislikeBtn.title = 'Dislike';
             }
+            userVotes[citationId] = 'like';
         }
     } else {
-        if (wasDisliked) {
+        if (previousVote === 'dislike') {
             // Remove dislike
-            dislikeBtn.classList.remove('active');
             dislikes--;
+            dislikeBtn.classList.remove('active');
+            dislikeBtn.title = 'Dislike';
+            userVotes[citationId] = null;
         } else {
             // Dislike
-            dislikeBtn.classList.add('active');
             dislikes++;
-            if (wasLiked) {
-                // Remove like if it was liked
-                likeBtn.classList.remove('active');
+            dislikeBtn.classList.add('active');
+            dislikeBtn.title = 'Remove dislike';
+            if (previousVote === 'like') {
+                // Remove previous like
                 likes--;
+                likeBtn.classList.remove('active');
+                likeBtn.title = 'Like';
             }
+            userVotes[citationId] = 'dislike';
         }
     }
 
@@ -460,7 +482,8 @@ async function handleVote(citationId, voteType) {
             type: 'updateCitationVotes',
             videoId,
             citationId,
-            votes: { likes, dislikes }
+            votes: { likes, dislikes },
+            userVote: userVotes[citationId]
         });
 
         if (!response.success) {
@@ -476,6 +499,7 @@ async function handleVote(citationId, voteType) {
 // Cache for current data to prevent unnecessary updates
 let currentCitations = [];
 let currentRequests = [];
+let userVotes = {};
 
 function forceUpdateTitle() {
     const titleElement = document.getElementById("citation-title");
