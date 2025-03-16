@@ -5,34 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Citation</title>
     <link rel="stylesheet" href="youtube_extension_style.css">
-    
 </head>
 <body>
     <h2>Add a Citation</h2>
     <form id="citation-form">
         <div class="form-group">
-            <label for="citation-title">Citation Title:</label>
-            <input type="text" id="citation-title" placeholder="Enter citation title" required>
+            <label for="source">Source:</label>
+            <input type="text" id="source" name="source" placeholder="Enter citation source" required>
         </div>
 
         <div class="form-group">
-            <label for="timestamp1">Start Timestamp:</label>
-            <input type="text" id="timestamp1" placeholder="Start (e.g., 00:01:23)" required>
+            <label for="timestampStart">Start Timestamp:</label>
+            <input type="text" id="timestampStart" name="timestampStart" placeholder="Start (e.g., 00:01:23)" required>
         </div>
 
         <div class="form-group">
-            <label for="timestamp2">End Timestamp:</label>
-            <input type="text" id="timestamp2" placeholder="End (e.g., 00:02:45)" required>
+            <label for="timestampEnd">End Timestamp:</label>
+            <input type="text" id="timestampEnd" name="timestampEnd" placeholder="End (e.g., 00:02:45)" required>
         </div>
 
         <div class="form-group">
-            <label for="citation-content">Citation Content:</label>
-            <textarea id="citation-content" placeholder="Enter citation content here..." required></textarea>
+            <label for="description">Description:</label>
+            <textarea id="description" name="description" placeholder="Enter citation description..." required></textarea>
         </div>
 
-        <button type="submit" id="submit-btn">Create Citation</button>
+        <button type="submit" id="submit-btn">Add Citation</button>
     </form>
-
-    <script src="dist/youtube_extension_citation.bundle.js"></script>
 </body>
 </html>

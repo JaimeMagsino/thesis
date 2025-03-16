@@ -1,43 +1,34 @@
 {
-  "manifest_version": 3,
-  "name": "YouTube Citation Extension",
-  "version": "1.0",
-  "description": "Extension to add and manage citations on YouTube videos.",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "cookies"
-  ],
-  "host_permissions": ["https://www.youtube.com/*","https://thesis-yt-ext-default-rtdb.firebaseio.com/*"],
-  "content_scripts": [
-      {
-          "matches": ["*://www.youtube.com/watch*"],
-          "js": ["content.js"],
-          "run_at": "document_idle"
-      }
-  ],
-  "web_accessible_resources": [
-      {
-          "resources": [
-              "content.html", 
-              "youtube_extension_citation.html", 
-              "youtube_extension_request.html",
-              "youtube_extension_style.css",
-              "dist/youtube_extension_citation.bundle.js",
-              "dist/firebase_init.bundle.js"
-          ],
-          "matches": ["<all_urls>"]
-      }
-  ],
-  "action": {
-      "default_popup": "youtube_extension_citation.html",
-      "default_icon": {
-          "16": "icon16.png",
-          "48": "icon48.png"
-      }
-  },
-  "content_security_policy": {
-      "extension_pages": "script-src 'self'; object-src 'self'"
-  }
+    "manifest_version": 3,
+    "name": "YouTube Citation Extension",
+    "version": "1.0",
+    "description": "Add and manage citations for YouTube videos",
+    "permissions": [
+        "activeTab",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://firestore.googleapis.com/*",
+        "https://*.firebaseio.com/*",
+        "https://*.firebase.com/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["*://www.youtube.com/*"],
+            "js": ["content.js"],
+            "css": ["youtube_extension_style.css"]
+        }
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "web_accessible_resources": [{
+        "resources": [
+            "youtube_extension_citation.html",
+            "youtube_extension_request.html",
+            "youtube_extension_style.css",
+            "config.js"
+        ],
+        "matches": ["*://www.youtube.com/*"]
+    }]
 }
