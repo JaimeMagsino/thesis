@@ -352,7 +352,7 @@ async function loadCitations() {
                         `;
                         
                         citationElement.innerHTML = `
-                            <p><strong>Source:</strong> ${citation.source}</p>
+                            <p><strong>Citation Title:</strong> ${citation.source}</p>
                             <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
                             <p><strong>Added by:</strong> ${citation.username}</p>
                             <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
