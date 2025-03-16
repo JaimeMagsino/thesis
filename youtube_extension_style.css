@@ -287,3 +287,122 @@ textarea {
 .dislike-btn.active .vote-icon {
     filter: hue-rotate(200deg);
 }
+
+/* Citation and Request List Styles */
+.citation-list,
+.request-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+.citation-item,
+.request-item {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-left: 4px solid #0073e6;
+}
+
+.citation-item:hover,
+.request-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.citation-header,
+.request-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+
+.citation-time,
+.request-time {
+    background-color: #f0f0f0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.citation-description,
+.request-reason {
+    color: #555;
+    line-height: 1.5;
+    margin: 8px 0;
+}
+
+.citation-source {
+    color: #0073e6;
+    font-style: italic;
+    margin-top: 8px;
+}
+
+.citation-actions,
+.request-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.action-button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease;
+}
+
+.edit-button {
+    background-color: #28a745;
+    color: white;
+}
+
+.delete-button {
+    background-color: #dc3545;
+    color: white;
+}
+
+.action-button:hover {
+    filter: brightness(90%);
+}
+
+/* Empty state styling */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #ccc;
+}
+
+/* List container improvements */
+#list-view-container.active {
+    padding: 24px;
+    background-color: #f8f9fa;
+    border-radius: 12px;
+    max-width: 800px;
+    margin: 20px auto;
+}
+
+/* Timestamp styling */
+.timestamp {
+    display: inline-block;
+    background-color: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    margin: 0 4px;
+}
