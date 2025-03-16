@@ -33,6 +33,7 @@ function waitForDependencies() {
 function init() {
     insertBelowTitle();
     insertCitationButtons();
+    migrateCitationsToNewFormat();
     console.log("Extension initialized");
 }
 
@@ -579,3 +580,25 @@ setInterval(() => {
         loadCitations();
     }
 }, 30000); // Updates every 30 seconds instead of 5 seconds
+
+async function migrateCitationsToNewFormat() {
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    if (!videoId) return;
+
+    try {
+        const response = await chrome.runtime.sendMessage({
+            type: 'migrateAllCitations',
+            videoId
+        });
+
+        if (response.success) {
+            console.log(`Successfully migrated ${response.migratedCount} citations`);
+            // Refresh the citations list
+            loadCitations();
+        } else {
+            console.error('Migration failed:', response.error);
+        }
+    } catch (error) {
+        console.error('Error during migration:', error);
+    }
+}
