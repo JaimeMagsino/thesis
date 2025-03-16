@@ -291,16 +291,16 @@ textarea {
 /* Citation Controls Container */
 #citation-controls {
     background-color: #ffffff;
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 16px;
-    padding: 16px;
+    margin-bottom: 12px;
+    padding: 12px;
 }
 
 #citation-controls h3 {
     color: #0f0f0f;
-    font-size: 16px;
-    margin: 0 0 12px 0;
+    font-size: 14px;
+    margin: 0 0 8px 0;
 }
 
 /* Control Buttons */
@@ -310,9 +310,9 @@ textarea {
     border-radius: 18px;
     color: #0f0f0f;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    padding: 8px 16px;
+    padding: 6px 12px;
     transition: all 0.2s ease;
 }
 
@@ -332,8 +332,8 @@ textarea {
     border-radius: 18px;
     color: #0f0f0f;
     cursor: pointer;
-    font-size: 14px;
-    padding: 8px 16px;
+    font-size: 13px;
+    padding: 6px 12px;
     outline: none;
 }
 
@@ -341,39 +341,56 @@ textarea {
 .citation-item,
 .citation-request {
     background-color: #ffffff;
-    border-left: 4px solid #065fd4;
-    border-radius: 8px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-    margin: 12px 0;
-    padding: 16px;
+    border-left: 3px solid #065fd4;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin: 8px 0;
+    padding: 8px 12px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .citation-item:hover,
 .citation-request:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
 }
 
 .citation-item p,
 .citation-request p {
     color: #0f0f0f;
-    font-size: 14px;
-    line-height: 1.4;
-    margin: 8px 0;
+    font-size: 13px;
+    line-height: 1.3;
+    margin: 4px 0;
 }
 
 .citation-item strong,
 .citation-request strong {
     color: #606060;
     font-weight: 500;
+    margin-right: 4px;
+}
+
+/* Compact Info Layout */
+.citation-info,
+.request-info {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 8px;
+    align-items: baseline;
+}
+
+.citation-info strong,
+.request-info strong {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* Vote Controls */
 .vote-controls {
     display: flex;
-    gap: 12px;
-    margin-top: 12px;
+    gap: 8px;
+    margin-top: 6px;
 }
 
 .vote-btn {
@@ -383,15 +400,15 @@ textarea {
     color: #606060;
     cursor: pointer;
     display: flex;
-    font-size: 14px;
-    gap: 4px;
-    padding: 6px 12px;
+    font-size: 13px;
+    gap: 2px;
+    padding: 4px 8px;
     transition: all 0.2s ease;
 }
 
 .vote-btn:hover {
     background-color: #f2f2f2;
-    border-radius: 18px;
+    border-radius: 14px;
 }
 
 .vote-btn.active {
@@ -399,7 +416,7 @@ textarea {
 }
 
 .vote-icon {
-    font-size: 16px;
+    font-size: 14px;
 }
 
 .vote-count {
@@ -410,13 +427,13 @@ textarea {
 .respond-btn {
     background-color: #065fd4;
     border: none;
-    border-radius: 18px;
+    border-radius: 14px;
     color: white;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    margin-top: 12px;
-    padding: 8px 16px;
+    margin-top: 6px;
+    padding: 4px 10px;
     transition: background-color 0.2s ease;
 }
 
@@ -428,18 +445,48 @@ textarea {
 #citation-requests-container p,
 #citations-container p {
     color: #606060;
-    font-size: 14px;
+    font-size: 13px;
     text-align: center;
-    padding: 24px 0;
+    padding: 12px 0;
 }
 
 /* Time Range Styling */
 .time-range {
     background-color: #f2f2f2;
-    border-radius: 4px;
+    border-radius: 3px;
     color: #606060;
     display: inline-block;
     font-family: 'Roboto Mono', monospace;
-    font-size: 13px;
-    padding: 2px 6px;
+    font-size: 12px;
+    padding: 1px 4px;
+}
+
+/* Container max height */
+#citation-requests-container,
+#citations-container {
+    max-height: 400px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+/* Webkit scrollbar styling */
+#citation-requests-container::-webkit-scrollbar,
+#citations-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+#citation-requests-container::-webkit-scrollbar-track,
+#citations-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+#citation-requests-container::-webkit-scrollbar-thumb,
+#citations-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+#citation-requests-container::-webkit-scrollbar-thumb:hover,
+#citations-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
