@@ -96,6 +96,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleGetRequests(request.videoId).then(sendResponse);
         return true;
     }
+    if (request.type === 'updateCitationVotes') {
+        handleUpdateCitationVotes(request.videoId, request.citationId, request.votes).then(sendResponse);
+        return true;
+    }
 });
 
 async function handleAddCitation(data) {
@@ -103,7 +107,9 @@ async function handleAddCitation(data) {
         console.log('Adding citation:', data);
         const citation = {
             ...data,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            likes: 0,
+            dislikes: 0
         };
         
         // Create a new document in the citations collection
@@ -194,6 +200,35 @@ async function handleGetRequests(videoId) {
         return { success: true, requests };
     } catch (error) {
         console.error('Error getting requests:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function handleUpdateCitationVotes(videoId, citationId, votes) {
+    try {
+        console.log('Updating citation votes:', { videoId, citationId, votes });
+        
+        // Get current citation data
+        const citationRef = `citations_${videoId}/${citationId}`;
+        const citation = await firestoreRequest(`citations_${videoId}`, citationId, 'GET');
+        
+        if (!citation) {
+            throw new Error('Citation not found');
+        }
+
+        // Update the votes
+        const updatedData = {
+            ...convertFromFirestore(citation),
+            likes: votes.likes,
+            dislikes: votes.dislikes
+        };
+
+        // Update the document
+        await firestoreRequest(`citations_${videoId}`, citationId, 'PATCH', updatedData);
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating citation votes:', error);
         return { success: false, error: error.message };
     }
 }

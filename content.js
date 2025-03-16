@@ -18,8 +18,12 @@ window.respondWithCitation = function(start, end, reason) {
 function waitForDependencies() {
     const checkPage = setInterval(() => {
         const titleContainer = document.querySelector("ytd-watch-metadata");
-        if (titleContainer) {
+        const videoElement = document.querySelector("video");
+        if (titleContainer && videoElement) {
             clearInterval(checkPage);
+            player = videoElement;
+            setupTimeTracking();
+            setupVideoChangeTracking();
             init();
             console.log("YouTube page ready, initializing extension");
         }
@@ -240,58 +244,59 @@ async function loadCitationRequests() {
             throw new Error(response.error);
         }
 
-        currentRequests = response.requests;
-        console.log('Received requests:', currentRequests);
+        const requests = response.requests;
         
-        container.innerHTML = currentRequests.length === 0 
-            ? '<p>No citation requests yet.</p>'
-            : currentRequests.map(request => {
-                console.log('Processing request:', request);
-                // Safely format the date with fallback
-                let formattedDate;
-                try {
-                    const date = new Date(request.timestamp);
-                    if (isNaN(date.getTime())) {
-                        console.error('Invalid date from timestamp:', request.timestamp);
-                        formattedDate = 'Date not available';
-                    } else {
-                        formattedDate = new Intl.DateTimeFormat('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true
-                        }).format(date);
-                    }
-                } catch (error) {
-                    console.error('Error formatting date:', error);
-                    formattedDate = 'Date not available';
+        // Only update DOM if container is visible and data has changed
+        if (container.style.display !== 'none' && JSON.stringify(requests) !== JSON.stringify(currentRequests)) {
+            currentRequests = requests;
+            requestAnimationFrame(() => {
+                container.innerHTML = '';
+                const fragment = document.createDocumentFragment();
+                
+                if (requests.length === 0) {
+                    const noCitations = document.createElement('p');
+                    noCitations.textContent = 'No citation requests yet.';
+                    fragment.appendChild(noCitations);
+                } else {
+                    requests.forEach(request => {
+                        const citationElement = document.createElement("div");
+                        citationElement.className = "citation-request";
+                        citationElement.dataset.start = parseTimestamp(request.timestampStart);
+                        citationElement.dataset.end = parseTimestamp(request.timestampEnd);
+                        citationElement.style.cssText = `
+                            border: 1px solid #ddd;
+                            padding: 10px;
+                            margin: 10px 0;
+                            border-radius: 5px;
+                            background-color: #f8f9fa;
+                            transition: background-color 0.3s;
+                        `;
+                        
+                        citationElement.innerHTML = `
+                            <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
+                            <p><strong>Reason:</strong> ${request.reason}</p>
+                            <p><strong>Requested by:</strong> ${request.username}</p>
+                            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            }).format(new Date(request.timestamp))}</p>
+                            <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
+                                Respond with Citation
+                            </button>
+                        `;
+                        
+                        fragment.appendChild(citationElement);
+                    });
                 }
 
-                return `
-                    <div class="citation-request" style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; background-color: #f8f9fa;">
-                        <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
-                        <p><strong>Reason:</strong> ${request.reason}</p>
-                        <p><strong>Requested by:</strong> ${request.username}</p>
-                        <p><strong>Date:</strong> ${formattedDate}</p>
-                        <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
-                            Respond with Citation
-                        </button>
-                    </div>
-                `;
-            }).join('');
-        
-        // Attach click event listeners to all "Respond with Citation" buttons
-        container.querySelectorAll('.respond-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                const start = button.getAttribute('data-start');
-                const end = button.getAttribute('data-end');
-                const reason = button.getAttribute('data-reason');
-                respondWithCitation(start, end, reason);
+                container.appendChild(fragment);
+                updateHighlighting(); // Re-apply highlighting after update
             });
-        });
-
+        }
     } catch (error) {
         console.error("Error loading citation requests:", error);
         container.innerHTML = '<p>Error loading citation requests: ' + error.message + '</p>';
@@ -320,54 +325,71 @@ async function loadCitations() {
 
         const citations = response.citations || [];
         
-        // Check if data has changed
-        if (JSON.stringify(citations) === JSON.stringify(currentCitations)) {
-            return; // No changes, skip update
-        }
-        currentCitations = citations;
-        
-        // Create new content
-        const fragment = document.createDocumentFragment();
-        
-        if (citations.length === 0) {
-            const noCitations = document.createElement('p');
-            noCitations.textContent = 'No citations found for this video.';
-            fragment.appendChild(noCitations);
-        } else {
-            citations.forEach(citation => {
-                const citationElement = document.createElement("div");
-                citationElement.style.cssText = `
-                    border: 1px solid #ddd;
-                    padding: 10px;
-                    margin-bottom: 10px;
-                    border-radius: 5px;
-                    background-color: white;
-                `;
-                
-                citationElement.innerHTML = `
-                    <p><strong>Source:</strong> ${citation.source}</p>
-                    <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
-                    <p><strong>Added by:</strong> ${citation.username}</p>
-                    <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    }).format(new Date(citation.dateAdded))}</p>
-                    <p>${citation.description}</p>
-                `;
-                
-                fragment.appendChild(citationElement);
-            });
-        }
-
-        // Only update DOM if container is visible
-        if (container.style.display !== 'none') {
+        // Only update DOM if container is visible and data has changed
+        if (container.style.display !== 'none' && JSON.stringify(citations) !== JSON.stringify(currentCitations)) {
+            currentCitations = citations;
             requestAnimationFrame(() => {
                 container.innerHTML = '';
+                const fragment = document.createDocumentFragment();
+                
+                if (citations.length === 0) {
+                    const noCitations = document.createElement('p');
+                    noCitations.textContent = 'No citations found for this video.';
+                    fragment.appendChild(noCitations);
+                } else {
+                    citations.forEach(citation => {
+                        const citationElement = document.createElement("div");
+                        citationElement.className = "citation-item";
+                        citationElement.dataset.start = parseTimestamp(citation.timestampStart);
+                        citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
+                        citationElement.style.cssText = `
+                            border: 1px solid #ddd;
+                            padding: 10px;
+                            margin-bottom: 10px;
+                            border-radius: 5px;
+                            background-color: white;
+                            transition: background-color 0.3s;
+                        `;
+                        
+                        citationElement.innerHTML = `
+                            <p><strong>Source:</strong> ${citation.source}</p>
+                            <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+                            <p><strong>Added by:</strong> ${citation.username}</p>
+                            <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            }).format(new Date(citation.dateAdded))}</p>
+                            <p>${citation.description}</p>
+                            <div class="vote-controls" data-citation-id="${citation.id}">
+                                <button class="vote-btn like-btn ${citation.userVote === 'like' ? 'active' : ''}" title="Like">
+                                    <span class="vote-icon">👍</span>
+                                    <span class="vote-count">${citation.likes || 0}</span>
+                                </button>
+                                <button class="vote-btn dislike-btn ${citation.userVote === 'dislike' ? 'active' : ''}" title="Dislike">
+                                    <span class="vote-icon">👎</span>
+                                    <span class="vote-count">${citation.dislikes || 0}</span>
+                                </button>
+                            </div>
+                        `;
+
+                        // Add vote event listeners
+                        const voteControls = citationElement.querySelector('.vote-controls');
+                        const likeBtn = voteControls.querySelector('.like-btn');
+                        const dislikeBtn = voteControls.querySelector('.dislike-btn');
+
+                        likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
+                        dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
+                        
+                        fragment.appendChild(citationElement);
+                    });
+                }
+
                 container.appendChild(fragment);
+                updateHighlighting(); // Re-apply highlighting after update
             });
         }
     } catch (error) {
@@ -375,6 +397,79 @@ async function loadCitations() {
         if (!container.hasChildNodes()) {
             container.innerHTML = '<p>Error loading citations. Please try again later.</p>';
         }
+    }
+}
+
+// Handle voting on citations
+async function handleVote(citationId, voteType) {
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    const voteControls = document.querySelector(`.vote-controls[data-citation-id="${citationId}"]`);
+    const likeBtn = voteControls.querySelector('.like-btn');
+    const dislikeBtn = voteControls.querySelector('.dislike-btn');
+    const likeCount = likeBtn.querySelector('.vote-count');
+    const dislikeCount = dislikeBtn.querySelector('.vote-count');
+
+    // Get current vote counts
+    let likes = parseInt(likeCount.textContent);
+    let dislikes = parseInt(dislikeCount.textContent);
+
+    // Get current button states
+    const wasLiked = likeBtn.classList.contains('active');
+    const wasDisliked = dislikeBtn.classList.contains('active');
+
+    // Update UI and counts based on the vote
+    if (voteType === 'like') {
+        if (wasLiked) {
+            // Unlike
+            likeBtn.classList.remove('active');
+            likes--;
+        } else {
+            // Like
+            likeBtn.classList.add('active');
+            likes++;
+            if (wasDisliked) {
+                // Remove dislike if it was disliked
+                dislikeBtn.classList.remove('active');
+                dislikes--;
+            }
+        }
+    } else {
+        if (wasDisliked) {
+            // Remove dislike
+            dislikeBtn.classList.remove('active');
+            dislikes--;
+        } else {
+            // Dislike
+            dislikeBtn.classList.add('active');
+            dislikes++;
+            if (wasLiked) {
+                // Remove like if it was liked
+                likeBtn.classList.remove('active');
+                likes--;
+            }
+        }
+    }
+
+    // Update the displayed counts
+    likeCount.textContent = likes;
+    dislikeCount.textContent = dislikes;
+
+    try {
+        // Send update to background script
+        const response = await chrome.runtime.sendMessage({
+            type: 'updateCitationVotes',
+            videoId,
+            citationId,
+            votes: { likes, dislikes }
+        });
+
+        if (!response.success) {
+            throw new Error(response.error);
+        }
+    } catch (error) {
+        console.error('Error updating votes:', error);
+        // Revert UI changes on error
+        loadCitations();
     }
 }
 
@@ -388,6 +483,92 @@ function forceUpdateTitle() {
         titleElement.style.display = 'none';
         setTimeout(() => titleElement.style.display = 'block', 0);
     }
+}
+
+// Track video player and current time
+let player = null;
+let currentTime = 0;
+let currentVideoId = null;
+
+function setupTimeTracking() {
+    if (!player) return;
+    
+    player.addEventListener('timeupdate', () => {
+        currentTime = player.currentTime;
+        updateHighlighting();
+    });
+}
+
+function setupVideoChangeTracking() {
+    // Listen for YouTube's navigation events
+    window.addEventListener('yt-navigate-start', () => {
+        console.log("YouTube navigation started");
+    });
+
+    window.addEventListener('yt-navigate-finish', () => {
+        const newVideoId = new URLSearchParams(window.location.search).get('v');
+        if (newVideoId && newVideoId !== currentVideoId) {
+            console.log("Video changed to:", newVideoId);
+            currentVideoId = newVideoId;
+            // Reset current time
+            currentTime = 0;
+            // Wait for a short moment to ensure the new video player is ready
+            setTimeout(() => {
+                // Find the new video player
+                const newPlayer = document.querySelector("video");
+                if (newPlayer) {
+                    player = newPlayer;
+                    setupTimeTracking();
+                }
+                // Update lists for new video
+                loadCitationRequests();
+                loadCitations();
+            }, 500);
+        }
+    });
+
+    // Also check for initial video ID
+    currentVideoId = new URLSearchParams(window.location.search).get('v');
+}
+
+function updateHighlighting() {
+    const citationsContainer = document.getElementById("citations-container");
+    const requestsContainer = document.getElementById("citation-requests-container");
+    
+    // Update citations highlighting
+    if (citationsContainer && citationsContainer.style.display !== 'none') {
+        citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
+            const start = Number(citation.dataset.start);
+            const end = Number(citation.dataset.end);
+            if (currentTime >= start && currentTime <= end) {
+                citation.classList.add('active-citation');
+            } else {
+                citation.classList.remove('active-citation');
+            }
+        });
+    }
+    
+    // Update citation requests highlighting
+    if (requestsContainer && requestsContainer.style.display !== 'none') {
+        requestsContainer.querySelectorAll('.citation-request').forEach(request => {
+            const start = Number(request.dataset.start);
+            const end = Number(request.dataset.end);
+            if (currentTime >= start && currentTime <= end) {
+                request.classList.add('active-citation');
+            } else {
+                request.classList.remove('active-citation');
+            }
+        });
+    }
+}
+
+function parseTimestamp(timestamp) {
+    const parts = timestamp.split(':').reverse();
+    let seconds = 0;
+    for (let i = 0; i < parts.length; i++) {
+        seconds += parseInt(parts[i]) * Math.pow(60, i);
+    }
+    return seconds;
 }
 
 // Update citation requests and citations periodically with longer interval
