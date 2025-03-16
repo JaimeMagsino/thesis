@@ -536,14 +536,24 @@ function updateCitationsList(citations, container) {
             citationElement.className = "citation-item";
             citationElement.dataset.start = parseTimestamp(citation.timestampStart);
             citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
+            
+            // Check if citation should be highlighted
+            const isHighlighted = currentTime >= parseTimestamp(citation.timestampStart) && 
+                                currentTime <= parseTimestamp(citation.timestampEnd);
+            
             citationElement.style.cssText = `
-                border: 1px solid #ddd;
+                border: 1px solid ${isHighlighted ? '#4CAF50' : '#ddd'};
                 padding: 10px;
                 margin-bottom: 10px;
                 border-radius: 5px;
-                background-color: white;
-                transition: background-color 0.3s;
+                background-color: ${isHighlighted ? '#E8F5E9' : 'white'};
+                transition: all 0.3s ease;
+                box-shadow: ${isHighlighted ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};
             `;
+            
+            if (isHighlighted) {
+                citationElement.classList.add('active-citation');
+            }
 
             const userVote = userVotes[citation.id] || null;
             
@@ -607,14 +617,24 @@ function updateRequestsList(requests, container) {
             requestElement.className = "citation-request";
             requestElement.dataset.start = parseTimestamp(request.timestampStart);
             requestElement.dataset.end = parseTimestamp(request.timestampEnd);
+            
+            // Check if request should be highlighted
+            const isHighlighted = currentTime >= parseTimestamp(request.timestampStart) && 
+                                currentTime <= parseTimestamp(request.timestampEnd);
+            
             requestElement.style.cssText = `
-                border: 1px solid #ddd;
+                border: 1px solid ${isHighlighted ? '#2196F3' : '#ddd'};
                 padding: 10px;
                 margin: 10px 0;
                 border-radius: 5px;
-                background-color: #f8f9fa;
-                transition: background-color 0.3s;
+                background-color: ${isHighlighted ? '#E3F2FD' : '#f8f9fa'};
+                transition: all 0.3s ease;
+                box-shadow: ${isHighlighted ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};
             `;
+            
+            if (isHighlighted) {
+                requestElement.classList.add('active-citation');
+            }
             
             requestElement.innerHTML = `
                 <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
@@ -642,49 +662,88 @@ function updateRequestsList(requests, container) {
     updateHighlighting();
 }
 
-// Cache for current data to prevent unnecessary updates
-let currentCitations = [];
-let currentRequests = [];
-let userVotes = {};
-let currentSortOption = 'likes'; // Default to likes for citations
-
-// Add sort function
-function sortItems(items, sortBy, itemType = 'citation') {
-    if (!Array.isArray(items)) {
-        console.error('sortItems received non-array:', items);
-        return [];
+// Update highlighting function to trigger resort when highlighting changes
+function updateHighlighting() {
+    const citationsContainer = document.getElementById("citations-container");
+    const requestsContainer = document.getElementById("citation-requests-container");
+    
+    // Update citations highlighting
+    if (citationsContainer && citationsContainer.style.display !== 'none') {
+        citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
+            const start = Number(citation.dataset.start);
+            const end = Number(citation.dataset.end);
+            const wasHighlighted = citation.classList.contains('active-citation');
+            const isNowHighlighted = currentTime >= start && currentTime <= end;
+            
+            if (isNowHighlighted !== wasHighlighted) {
+                if (isNowHighlighted) {
+                    citation.classList.add('active-citation');
+                    citation.style.borderColor = '#4CAF50';
+                    citation.style.backgroundColor = '#E8F5E9';
+                    citation.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                } else {
+                    citation.classList.remove('active-citation');
+                    citation.style.borderColor = '#ddd';
+                    citation.style.backgroundColor = 'white';
+                    citation.style.boxShadow = 'none';
+                }
+            }
+        });
     }
     
-    // Use timestamp as default for requests, likes for citations
-    if (!sortBy) {
-        sortBy = itemType === 'request' ? 'timestamp' : 'likes';
+    // Update citation requests highlighting
+    if (requestsContainer && requestsContainer.style.display !== 'none') {
+        requestsContainer.querySelectorAll('.citation-request').forEach(request => {
+            const start = Number(request.dataset.start);
+            const end = Number(request.dataset.end);
+            const wasHighlighted = request.classList.contains('active-citation');
+            const isNowHighlighted = currentTime >= start && currentTime <= end;
+            
+            if (isNowHighlighted !== wasHighlighted) {
+                if (isNowHighlighted) {
+                    request.classList.add('active-citation');
+                    request.style.borderColor = '#2196F3';
+                    request.style.backgroundColor = '#E3F2FD';
+                    request.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                } else {
+                    request.classList.remove('active-citation');
+                    request.style.borderColor = '#ddd';
+                    request.style.backgroundColor = '#f8f9fa';
+                    request.style.boxShadow = 'none';
+                }
+            }
+        });
     }
-    
-    return [...items].sort((a, b) => {
-        switch(sortBy) {
-            case 'timestamp':
-                // Get the timestamp for each item
-                const dateA = new Date(a.dateAdded || a.timestamp).getTime();
-                const dateB = new Date(b.dateAdded || b.timestamp).getTime();
-                // Sort by most recent first
-                return dateB - dateA;
-            case 'likes':
-                const likesA = parseInt(a.likes || 0);
-                const likesB = parseInt(b.likes || 0);
-                return likesB - likesA;
-            default:
-                return 0;
-        }
-    });
 }
 
-function forceUpdateTitle() {
-    const titleElement = document.getElementById("citation-title");
-    if (titleElement) {
-        titleElement.style.display = 'none';
-        setTimeout(() => titleElement.style.display = 'block', 0);
-    }
+// Debounce function to limit the frequency of updates
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
+
+// Debounced version of the sort and update function
+const debouncedSortAndUpdate = debounce(() => {
+    const citationsContainer = document.getElementById("citations-container");
+    const requestsContainer = document.getElementById("citation-requests-container");
+    
+    if (citationsContainer && citationsContainer.style.display !== 'none') {
+        const sortedCitations = sortItems(currentCitations, currentSortOption, 'citation');
+        updateCitationsList(sortedCitations, citationsContainer);
+    }
+    
+    if (requestsContainer && requestsContainer.style.display !== 'none') {
+        const sortedRequests = sortItems(currentRequests, currentSortOption, 'request');
+        updateRequestsList(sortedRequests, requestsContainer);
+    }
+}, 250); // Wait 250ms after the last call before executing
 
 // Track video player and current time
 let player = null;
@@ -697,6 +756,12 @@ function setupTimeTracking() {
     player.addEventListener('timeupdate', () => {
         currentTime = player.currentTime;
         updateHighlighting();
+        
+        // Only trigger resort if there are active items
+        const hasActiveItems = document.querySelectorAll('.active-citation').length > 0;
+        if (hasActiveItems) {
+            debouncedSortAndUpdate();
+        }
     });
 }
 
@@ -732,37 +797,6 @@ function setupVideoChangeTracking() {
     currentVideoId = new URLSearchParams(window.location.search).get('v');
 }
 
-function updateHighlighting() {
-    const citationsContainer = document.getElementById("citations-container");
-    const requestsContainer = document.getElementById("citation-requests-container");
-    
-    // Update citations highlighting
-    if (citationsContainer && citationsContainer.style.display !== 'none') {
-        citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
-            const start = Number(citation.dataset.start);
-            const end = Number(citation.dataset.end);
-            if (currentTime >= start && currentTime <= end) {
-                citation.classList.add('active-citation');
-            } else {
-                citation.classList.remove('active-citation');
-            }
-        });
-    }
-    
-    // Update citation requests highlighting
-    if (requestsContainer && requestsContainer.style.display !== 'none') {
-        requestsContainer.querySelectorAll('.citation-request').forEach(request => {
-            const start = Number(request.dataset.start);
-            const end = Number(request.dataset.end);
-            if (currentTime >= start && currentTime <= end) {
-                request.classList.add('active-citation');
-            } else {
-                request.classList.remove('active-citation');
-            }
-        });
-    }
-}
-
 function parseTimestamp(timestamp) {
     const parts = timestamp.split(':').reverse();
     let seconds = 0;
@@ -780,3 +814,66 @@ setInterval(() => {
         loadCitations();
     }
 }, 30000); // Updates every 30 seconds instead of 5 seconds
+
+// Cache for current data to prevent unnecessary updates
+let currentCitations = [];
+let currentRequests = [];
+let userVotes = {};
+let currentSortOption = 'likes'; // Default to likes for citations
+
+// Add sort function
+function sortItems(items, sortBy, itemType = 'citation') {
+    if (!Array.isArray(items)) {
+        console.error('sortItems received non-array:', items);
+        return [];
+    }
+    
+    // Use timestamp as default for requests, likes for citations
+    if (!sortBy) {
+        sortBy = itemType === 'request' ? 'timestamp' : 'likes';
+    }
+
+    // Helper function to check if an item is currently highlighted
+    const isHighlighted = (item) => {
+        const start = parseTimestamp(item.timestampStart);
+        const end = parseTimestamp(item.timestampEnd);
+        return currentTime >= start && currentTime <= end;
+    };
+    
+    // Split items into highlighted and non-highlighted
+    const highlighted = items.filter(isHighlighted);
+    const normal = items.filter(item => !isHighlighted(item));
+    
+    // Sort function for both groups
+    const sortFunction = (a, b) => {
+        switch(sortBy) {
+            case 'timestamp':
+                // Get the timestamp for each item
+                const dateA = new Date(a.dateAdded || a.timestamp).getTime();
+                const dateB = new Date(b.dateAdded || b.timestamp).getTime();
+                // Sort by most recent first
+                return dateB - dateA;
+            case 'likes':
+                const likesA = parseInt(a.likes || 0);
+                const likesB = parseInt(b.likes || 0);
+                return likesB - likesA;
+            default:
+                return 0;
+        }
+    };
+
+    // Sort each group separately
+    const sortedHighlighted = highlighted.sort(sortFunction);
+    const sortedNormal = normal.sort(sortFunction);
+
+    // Combine the groups with highlighted items first
+    return [...sortedHighlighted, ...sortedNormal];
+}
+
+function forceUpdateTitle() {
+    const titleElement = document.getElementById("citation-title");
+    if (titleElement) {
+        titleElement.style.display = 'none';
+        setTimeout(() => titleElement.style.display = 'block', 0);
+    }
+}
