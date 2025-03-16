@@ -211,3 +211,79 @@ textarea {
     background-color: #065fd4;
     color: white;
 }
+
+/* Active citation highlighting */
+.active-citation {
+    background-color: #e3f2fd !important;
+    border-color: #2196f3 !important;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.3) !important;
+}
+
+.citation-item,
+.citation-request {
+    position: relative;
+    overflow: hidden;
+}
+
+.citation-item::before,
+.citation-request::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background-color: transparent;
+    transition: background-color 0.3s;
+}
+
+.active-citation::before {
+    background-color: #2196f3;
+}
+
+/* Vote controls */
+.vote-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.vote-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.vote-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.vote-btn.active {
+    background-color: #e3f2fd;
+    border-color: #2196f3;
+    color: #2196f3;
+}
+
+.vote-icon {
+    font-size: 16px;
+}
+
+.vote-count {
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+}
+
+.like-btn.active .vote-icon {
+    filter: hue-rotate(200deg);
+}
+
+.dislike-btn.active .vote-icon {
+    filter: hue-rotate(200deg);
+}
