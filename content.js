@@ -225,7 +225,7 @@ function switchTab(tabName) {
     forceUpdateTitle();
 }
 
-async function loadCitationRequests() {
+/* async function loadCitationRequests() {
     const container = document.getElementById("citation-requests-container");
     if (!container) {
         console.log("Citation requests container not found");
@@ -301,9 +301,73 @@ async function loadCitationRequests() {
         console.error("Error loading citation requests:", error);
         container.innerHTML = '<p>Error loading citation requests: ' + error.message + '</p>';
     }
+} */
+
+async function loadCitationRequests() {
+    const container = document.getElementById("citation-requests-container");
+    if (!container) return;
+
+    const videoId = new URLSearchParams(window.location.search).get('v');
+
+    try {
+        const response = await chrome.runtime.sendMessage({
+            type: 'getRequests',
+            videoId
+        });
+
+        if (!response.success) throw new Error(response.error);
+
+        container.innerHTML = response.requests.length === 0
+            ? '<p>No citation requests found.</p>'
+            : response.requests.map(request => `
+                <div class="citation-request" data-id="${request.id}" style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                    <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
+                    <p><strong>Reason:</strong> ${request.reason}</p>
+                    <p><strong>Requested by:</strong> ${request.username}</p>
+                    <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
+                        Respond with Citation
+                    </button>
+                    <button class="delete-request" data-id="${request.id}">Delete</button>
+                </div>
+            `).join('');
+
+        // Attach event listeners to Respond and Delete buttons
+        container.querySelectorAll(".respond-btn").forEach(button => {
+            button.addEventListener("click", () => {
+                const start = button.getAttribute("data-start");
+                const end = button.getAttribute("data-end");
+                const reason = button.getAttribute("data-reason");
+                respondWithCitation(start, end, reason);
+            });
+        });
+
+        container.querySelectorAll(".delete-request").forEach(button => {
+            button.addEventListener("click", () => {
+                const docId = button.getAttribute("data-id");
+                deleteRequest(videoId, docId);
+            });
+        });
+
+    } catch (error) {
+        console.error("Error loading citation requests:", error);
+    }
 }
 
-async function loadCitations() {
+async function deleteRequest(videoId, docId) {
+    const response = await chrome.runtime.sendMessage({
+        type: 'deleteRequest',
+        videoId,
+        docId
+    });
+
+    if (response.success) {
+        loadCitationRequests();
+    } else {
+        alert("Error deleting citation request");
+    }
+}
+
+/* async function loadCitations() {
     const container = document.getElementById("citations-container");
     if (!container) {
         console.log("Citations container not found");
@@ -410,6 +474,79 @@ async function loadCitations() {
         if (!container.hasChildNodes()) {
             container.innerHTML = '<p>Error loading citations. Please try again later.</p>';
         }
+    }
+} */
+
+async function loadCitations() {
+    const container = document.getElementById("citations-container");
+    if (!container) return;
+
+    const videoId = new URLSearchParams(window.location.search).get('v');
+
+    try {
+        const [citationsResponse, votesResponse] = await Promise.all([
+            chrome.runtime.sendMessage({ type: 'getCitations', videoId }),
+            chrome.runtime.sendMessage({ type: 'getUserVotes', videoId })
+        ]);
+
+        if (!citationsResponse.success) throw new Error(citationsResponse.error);
+
+        const citations = citationsResponse.citations || [];
+        userVotes = votesResponse.success ? votesResponse.votes : {};
+
+        container.innerHTML = citations.length === 0
+            ? '<p>No citations found.</p>'
+            : citations.map(citation => `
+                <div class="citation" data-id="${citation.id}" style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                    <p><strong>Source:</strong> ${citation.source}</p>
+                    <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+                    <p><strong>Added by:</strong> ${citation.username}</p>
+                    <p>${citation.description}</p>
+                    <button class="delete-citation" data-id="${citation.id}">Delete</button>
+                    <div class="vote-controls" data-citation-id="${citation.id}">
+                        <button class="vote-btn like-btn ${userVotes[citation.id] === 'like' ? 'active' : ''}" 
+                                title="${userVotes[citation.id] === 'like' ? 'Remove like' : 'Like'}">
+                            👍 <span class="vote-count">${citation.likes || 0}</span>
+                        </button>
+                        <button class="vote-btn dislike-btn ${userVotes[citation.id] === 'dislike' ? 'active' : ''}" 
+                                title="${userVotes[citation.id] === 'dislike' ? 'Remove dislike' : 'Dislike'}">
+                            👎 <span class="vote-count">${citation.dislikes || 0}</span>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+        // Attach event listeners for delete buttons
+        container.querySelectorAll(".delete-citation").forEach(button => {
+            button.addEventListener("click", () => {
+                const docId = button.getAttribute("data-id");
+                deleteCitation(videoId, docId);
+            });
+        });
+
+        // Attach event listeners for like/dislike buttons
+        container.querySelectorAll(".vote-controls").forEach(voteControl => {
+            const citationId = voteControl.dataset.citationId;
+            voteControl.querySelector(".like-btn").addEventListener("click", () => handleVote(citationId, 'like'));
+            voteControl.querySelector(".dislike-btn").addEventListener("click", () => handleVote(citationId, 'dislike'));
+        });
+
+    } catch (error) {
+        console.error("Error loading citations:", error);
+    }
+}
+
+async function deleteCitation(videoId, docId) {
+    const response = await chrome.runtime.sendMessage({
+        type: 'deleteCitation',
+        videoId,
+        docId
+    });
+
+    if (response.success) {
+        loadCitations();
+    } else {
+        alert("Error deleting citation");
     }
 }
 

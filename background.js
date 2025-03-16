@@ -96,6 +96,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleGetRequests(request.videoId).then(sendResponse);
         return true;
     }
+	if (request.type === 'deleteCitation') {
+        handleDeleteCitation(request.videoId, request.docId).then(sendResponse);
+        return true;
+    }
+    if (request.type === 'deleteRequest') {
+        handleDeleteRequest(request.videoId, request.docId).then(sendResponse);
+        return true;
+    }
     if (request.type === 'updateCitationVotes') {
         handleUpdateCitationVotes(request.videoId, request.citationId, request.votes, request.userVote).then(sendResponse);
         return true;
@@ -204,6 +212,28 @@ async function handleGetRequests(videoId) {
         return { success: true, requests };
     } catch (error) {
         console.error('Error getting requests:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function handleDeleteCitation(videoId, docId) {
+    try {
+        console.log(`Deleting citation: ${docId} for video: ${videoId}`);
+        await firestoreRequest(`citations_${videoId}`, docId, 'DELETE');
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting citation:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function handleDeleteRequest(videoId, docId) {
+    try {
+        console.log(`Deleting request: ${docId} for video: ${videoId}`);
+        await firestoreRequest(`requests_${videoId}`, docId, 'DELETE');
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting request:', error);
         return { success: false, error: error.message };
     }
 }

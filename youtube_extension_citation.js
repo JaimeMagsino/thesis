@@ -24,4 +24,20 @@ function setupFormListeners() {
 // Run `setupFormListeners()` after the page is fully loaded
 document.addEventListener("DOMContentLoaded", () => {
     setupFormListeners();
+
+    document.getElementById("citation-container")?.addEventListener("click", (event) => {
+        if (event.target.classList.contains("delete-citation")) {
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            const docId = event.target.dataset.id;
+            deleteCitation(videoId, docId);
+        }
+    });
+
+    document.getElementById("citation-requests-container")?.addEventListener("click", (event) => {
+        if (event.target.classList.contains("delete-request")) {
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            const docId = event.target.dataset.id;
+            deleteRequest(videoId, docId);
+        }
+    });
 });
