@@ -10,23 +10,21 @@
     <h2>Request for Citation</h2>
     <form id="request-form">
         <div class="form-group">
-            <label for="request-timestamp1">Start Timestamp:</label>
-            <input type="text" id="request-timestamp1" placeholder="Start (e.g., 00:01:23)" required>
+            <label for="timestampStart">Start Timestamp:</label>
+            <input type="text" id="timestampStart" name="timestampStart" placeholder="Start (e.g., 00:01:23)" required>
         </div>
 
         <div class="form-group">
-            <label for="request-timestamp2">End Timestamp:</label>
-            <input type="text" id="request-timestamp2" placeholder="End (e.g., 00:02:45)" required>
+            <label for="timestampEnd">End Timestamp:</label>
+            <input type="text" id="timestampEnd" name="timestampEnd" placeholder="End (e.g., 00:02:45)" required>
         </div>
 
         <div class="form-group">
-            <label for="request-reason">Reason for Citation:</label>
-            <textarea id="request-reason" placeholder="Enter reason for citation..." required></textarea>
+            <label for="reason">Reason for Citation:</label>
+            <textarea id="reason" name="reason" placeholder="Enter reason for citation..." required></textarea>
         </div>
 
-        <button type="submit" id="request-submit-btn">Submit Request</button>
+        <button type="submit" id="submit-btn">Submit Request</button>
     </form>
-
-    <script src="youtube_extension_citation.js"></script>
 </body>
 </html>

@@ -1,8 +1,52 @@
+// Wait for YouTube page to be ready
+window.respondWithCitation = function(start, end, reason) {
+    // Switch to Add Citation tab and load the form
+    document.getElementById('add-citation-btn').classList.add('active');
+    document.getElementById('request-citation-btn').classList.remove('active');
+    loadPage("youtube_extension_citation.html", "citation-container", () => {
+        // This callback runs after the form is loaded
+        const form = document.getElementById('citation-form');
+        if (form) {
+            form.timestampStart.value = start;
+            form.timestampEnd.value = end;
+            form.description.value = `Response to request: ${reason}`;
+            form.source.focus();
+        }
+    });
+};
+
+function waitForDependencies() {
+    const checkPage = setInterval(() => {
+        const titleContainer = document.querySelector("ytd-watch-metadata");
+        if (titleContainer) {
+            clearInterval(checkPage);
+            init();
+            console.log("YouTube page ready, initializing extension");
+        }
+    }, 100);
+}
+
+function init() {
+    insertBelowTitle();
+    insertCitationButtons();
+    console.log("Extension initialized");
+}
+
+// Start initialization
+waitForDependencies();
+
 function insertBelowTitle() {
     const titleElement = document.querySelector("h1.style-scope.ytd-watch-metadata");
+    console.log("Attempting to insert below title");
 
-    if (!titleElement) return;
-    if (document.getElementById("custom-extension-element")) return;
+    if (!titleElement) {
+        console.log("Title element not found");
+        return;
+    }
+    if (document.getElementById("custom-extension-element")) {
+        console.log("Extension element already exists");
+        return;
+    }
 
     const newElement = document.createElement("div");
     newElement.id = "custom-extension-element";
@@ -17,67 +61,116 @@ function insertBelowTitle() {
     `;
 
     titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
+    console.log("Extension element inserted");
 
     // Load "Add Citation" by default
     loadPage("youtube_extension_citation.html", "citation-container");
 
     // Add event listeners for tab switching
     document.getElementById('add-citation-btn').addEventListener('click', () => {
+        document.getElementById('add-citation-btn').classList.add('active');
+        document.getElementById('request-citation-btn').classList.remove('active');
         loadPage("youtube_extension_citation.html", "citation-container");
     });
 
     document.getElementById('request-citation-btn').addEventListener('click', () => {
+        document.getElementById('add-citation-btn').classList.remove('active');
+        document.getElementById('request-citation-btn').classList.add('active');
         loadPage("youtube_extension_request.html", "citation-container");
     });
 }
 
-
-
-// Function to switch between Add Citation and Request for Citation
-function showPage(sectionId, buttonId) {
-    const allSections = document.querySelectorAll("#citation-container > div");
-
-    allSections.forEach(section => {
-        section.style.display = "none";
-    });
-
-    const activeSection = document.getElementById(sectionId);
-    if (activeSection) {
-        activeSection.style.display = "block";
-    }
-
-    // Update active button styling
-    document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
-    document.getElementById(buttonId).classList.add("active");
-}
-
-
-function loadPage(url, containerId) {
+function loadPage(url, containerId, callback = null) {
     fetch(chrome.runtime.getURL(url))
         .then(response => response.text())
         .then(html => {
             document.getElementById(containerId).innerHTML = html;
-
-            // Inject CSS dynamically
-            const styleLink = document.createElement("link");
-            styleLink.rel = "stylesheet";
-            styleLink.href = chrome.runtime.getURL("youtube_extension_style.css");
-            document.head.appendChild(styleLink);
-
-            // Setup form listeners
             setupFormListeners();
+            if (callback) callback();
         })
-        .catch(error => console.error("Error loading citation form:", error));
+        .catch(error => console.error("Error loading form:", error));
 }
 
-function setupFormListeners() {
+async function setupFormListeners() {
     const form = document.getElementById('citation-form');
     if (form && !form.dataset.listener) {
         form.dataset.listener = "true";
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            alert('Citation Submitted!');
-            form.reset();
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            
+            try {
+                const citationData = {
+                    videoId,
+                    source: form.source.value,
+                    timestampStart: form.timestampStart.value,
+                    timestampEnd: form.timestampEnd.value,
+                    description: form.description.value,
+                    username: 'Anonymous', // Replace with actual user authentication
+                    dateAdded: new Date().toISOString()
+                };
+                
+                const response = await chrome.runtime.sendMessage({
+                    type: 'addCitation',
+                    data: citationData
+                });
+
+                if (response.success) {
+                    alert('Citation added successfully!');
+                    form.reset();
+                    loadCitations();
+                } else {
+                    throw new Error(response.error);
+                }
+            } catch (error) {
+                console.error("Error adding citation:", error);
+                alert('Error adding citation. Please try again.');
+            }
+        });
+    }
+
+    const requestForm = document.getElementById('request-form');
+    if (requestForm && !requestForm.dataset.listener) {
+        requestForm.dataset.listener = "true";
+        requestForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            
+            try {
+                // Get current timestamp in ISO format
+                const currentTime = new Date().toISOString();
+                
+                const requestData = {
+                    videoId,
+                    timestampStart: requestForm.timestampStart.value,
+                    timestampEnd: requestForm.timestampEnd.value,
+                    reason: requestForm.reason.value,
+                    username: 'Anonymous',
+                    timestamp: currentTime // Use consistent timestamp field name
+                };
+
+                console.log('Submitting request with data:', requestData);
+                
+                const response = await chrome.runtime.sendMessage({
+                    type: 'addRequest',
+                    data: requestData
+                });
+
+                if (response.success) {
+                    alert('Citation request submitted successfully!');
+                    requestForm.reset();
+                    // Refresh the requests list if it's visible
+                    const requestsContainer = document.getElementById('citation-requests-container');
+                    if (requestsContainer) {
+                        loadCitationRequests();
+                    }
+                } else {
+                    throw new Error(response.error);
+                }
+            } catch (error) {
+                console.error("Error submitting citation request:", error);
+                alert('Error submitting request. Please try again.');
+            }
         });
     }
 
@@ -97,7 +190,6 @@ function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
     
     if (!secondaryElement) return;
-    
     if (document.getElementById("citation-controls")) return;
     
     const citationControls = document.createElement("div");
@@ -109,8 +201,7 @@ function insertCitationButtons() {
             <button id="citation-requests-btn">Citation Requests</button>
             <button id="citations-btn">Citations</button>
             <select id="sort-options">
-                <option value="rating">Sort by Highest Rated</option>
-                <option value="date">Sort by Date</option>
+                <option value="timestamp">Sort by Date</option>
             </select>
         </div>
         <h3 id="citation-title">Citations</h3>
@@ -128,7 +219,6 @@ function insertCitationButtons() {
         switchTab("Citations");
         loadCitations();
     });
-    document.getElementById("sort-options").addEventListener("change", (event) => sortCitations(event.target.value));
 
     // Automatically show the Citation Requests tab
     switchTab("Citation Requests");
@@ -142,256 +232,180 @@ function switchTab(tabName) {
     forceUpdateTitle();
 }
 
-function getCurrentVideoTimestamp() {
-    const video = document.querySelector("video");
-    return video ? video.currentTime : 0;
-}
-
-
-function loadCitationRequests() {
+async function loadCitationRequests() {
     const container = document.getElementById("citation-requests-container");
-    container.innerHTML = "";
+    if (!container) {
+        console.log("Citation requests container not found");
+        return;
+    }
 
-    const currentTimestamp = getCurrentVideoTimestamp();
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    
+    try {
+        const response = await chrome.runtime.sendMessage({
+            type: 'getRequests',
+            videoId
+        });
 
-    const sampleRequests = [
-        {
-            username: "UserA",
-            dateRequested: "2025-03-07",
-            timestampStart: "00:00:30",
-            timestampEnd: "00:01:00",
-            reason: "Fact-check needed on historical claim",
-            youtubeLink: "https://youtube.com/watch?v=sample1"
-        },
-        {
-            username: "UserB",
-            dateRequested: "2025-03-07",
-            timestampStart: "00:00:35",
-            timestampEnd: "00:03:00",
-            reason: "Verify scientific statement",
-            youtubeLink: "https://youtube.com/watch?v=sample2"
-        },
-        {
-            username: "UserC",
-            dateRequested: "2025-03-07",
-            timestampStart: "00:00:20",
-            timestampEnd: "00:06:00",
-            reason: "Check source for political statement",
-            youtubeLink: "https://youtube.com/watch?v=sample3"
+        if (!response.success) {
+            throw new Error(response.error);
         }
-    ];
 
-    // Sort by most recent timestampStart, prioritizing those within the timestamp range
-    sampleRequests.sort((a, b) => {
-        const aStart = timeToSeconds(a.timestampStart);
-        const bStart = timeToSeconds(b.timestampStart);
-        const aInRange = isInTimestampRange(a);
-        const bInRange = isInTimestampRange(b);
+        currentRequests = response.requests;
+        console.log('Received requests:', currentRequests);
+        
+        container.innerHTML = currentRequests.length === 0 
+            ? '<p>No citation requests yet.</p>'
+            : currentRequests.map(request => {
+                console.log('Processing request:', request);
+                // Safely format the date with fallback
+                let formattedDate;
+                try {
+                    const date = new Date(request.timestamp);
+                    if (isNaN(date.getTime())) {
+                        console.error('Invalid date from timestamp:', request.timestamp);
+                        formattedDate = 'Date not available';
+                    } else {
+                        formattedDate = new Intl.DateTimeFormat('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                        }).format(date);
+                    }
+                } catch (error) {
+                    console.error('Error formatting date:', error);
+                    formattedDate = 'Date not available';
+                }
 
-        // Prioritize in-range timestamps, then sort by most recent start time
-        if (aInRange && !bInRange) return -1;
-        if (!aInRange && bInRange) return 1;
-        return bStart - aStart; // Sort by most recent timestampStart
-    });
+                return `
+                    <div class="citation-request" style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; background-color: #f8f9fa;">
+                        <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
+                        <p><strong>Reason:</strong> ${request.reason}</p>
+                        <p><strong>Requested by:</strong> ${request.username}</p>
+                        <p><strong>Date:</strong> ${formattedDate}</p>
+                        <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
+                            Respond with Citation
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        
+        // Attach click event listeners to all "Respond with Citation" buttons
+        container.querySelectorAll('.respond-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const start = button.getAttribute('data-start');
+                const end = button.getAttribute('data-end');
+                const reason = button.getAttribute('data-reason');
+                respondWithCitation(start, end, reason);
+            });
+        });
 
-    sampleRequests.forEach(request => {
-        const requestElement = document.createElement("div");
-        requestElement.style.cssText = `
-            border: 1px solid #ddd; 
-            padding: 10px; 
-            margin: 5px 0; 
-            background: ${isInTimestampRange(request) ? '#fffae6' : '#fff'}; 
-        `;
-        requestElement.innerHTML = `
-            <p><strong>Username:</strong> ${request.username}</p>
-            <p><strong>Date Requested:</strong> ${request.dateRequested}</p>
-            <p><strong>Timestamp Start:</strong> ${request.timestampStart}</p>
-            <p><strong>Timestamp End:</strong> ${request.timestampEnd}</p>
-            <p><strong>Reason:</strong> ${request.reason}</p>
-            <p><strong>Video:</strong> <a href="${request.youtubeLink}" target="_blank">${request.youtubeLink}</a></p>
-            <button class="cite-btn">Cite</button>
-        `;
-
-        const citeButton = requestElement.querySelector(".cite-btn");
-        citeButton.addEventListener("click", () => handleCitationRequest(request));
-
-        container.appendChild(requestElement);
-    });
+    } catch (error) {
+        console.error("Error loading citation requests:", error);
+        container.innerHTML = '<p>Error loading citation requests: ' + error.message + '</p>';
+    }
 }
 
-// Helper function to check if a request is within the current timestamp range
-function isInTimestampRange(request) {
-    const currentTimestamp = getCurrentVideoTimestamp();
-    const startTime = timeToSeconds(request.timestampStart);
-    const endTime = timeToSeconds(request.timestampEnd);
-    return currentTimestamp >= startTime && currentTimestamp <= endTime;
-}
-
-
-// Helper function to check if a request is within the current timestamp
-function isInTimestampRange(request) {
-    const currentTimestamp = getCurrentVideoTimestamp();
-    const startTime = timeToSeconds(request.timestampStart);
-    const endTime = timeToSeconds(request.timestampEnd);
-    return currentTimestamp >= startTime && currentTimestamp <= endTime;
-}
-
-
-
-function timeToSeconds(time) {
-    const parts = time.split(":").map(Number);
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-}
-
-
-
-
-function handleCitationRequest(request) {
-    console.log("Citation Request Selected:", request);
-
-    // Switch to "Add Citation" tab
-    document.getElementById("add-citation-btn").click(); 
-
-   
-    setTimeout(() => {
-        const startTimestampField = document.getElementById("timestamp1");
-        const endTimestampField = document.getElementById("timestamp2");
-        const citationContentField = document.getElementById("citation-content");
-
-        if (startTimestampField) startTimestampField.value = request.timestampStart;
-        if (endTimestampField) endTimestampField.value = request.timestampEnd;
-        if (citationContentField) citationContentField.value = `Reason: ${request.reason}`;
-    }, 300); 
-}
-
-
-function loadCitations() {
+async function loadCitations() {
     const container = document.getElementById("citations-container");
-    container.innerHTML = "";
+    if (!container) {
+        console.log("Citations container not found");
+        return;
+    }
 
-    const currentTimestamp = getCurrentVideoTimestamp();
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    console.log("Loading citations for video:", videoId);
 
-    let sampleCitations = [
-        {
-            username: "Scholar456",
-            datePosted: "2025-03-05",
-            timestampStart: "00:03:15",
-            timestampEnd: "00:04:00",
-            reasonForCitation: "This claim lacks credible sources and needs verification.",
-            likes: 15,
-            dislikes: 2,
-            citationSource: "https://example.com/source",
-            youtubeLink: "https://youtube.com/watch?v=sample2"
-        },
-        {
-            username: "Researcher789",
-            datePosted: "2025-03-06",
-            timestampStart: "00:01:10",
-            timestampEnd: "00:02:00",
-            reasonForCitation: "Statistical data needs verification.",
-            likes: 10,
-            dislikes: 3,
-            citationSource: "https://example.com/data",
-            youtubeLink: "https://youtube.com/watch?v=sample3"
-        },
-        {
-            username: "Expert101",
-            datePosted: "2025-03-07",
-            timestampStart: "00:05:10",
-            timestampEnd: "00:06:30",
-            reasonForCitation: "Claim is misleading, needs context.",
-            likes: 25,
-            dislikes: 1,
-            citationSource: "https://example.com/context",
-            youtubeLink: "https://youtube.com/watch?v=sample4"
+    try {
+        const response = await chrome.runtime.sendMessage({
+            type: 'getCitations',
+            videoId: videoId
+        });
+
+        if (!response.success) {
+            throw new Error(response.error);
         }
-    ];
 
-    // Sort by most recent timestampStart, prioritizing those within the timestamp range
-    sampleCitations.sort((a, b) => {
-        const aStart = timeToSeconds(a.timestampStart);
-        const bStart = timeToSeconds(b.timestampStart);
-        const aInRange = isInTimestampRange(a);
-        const bInRange = isInTimestampRange(b);
+        const citations = response.citations || [];
+        
+        // Check if data has changed
+        if (JSON.stringify(citations) === JSON.stringify(currentCitations)) {
+            return; // No changes, skip update
+        }
+        currentCitations = citations;
+        
+        // Create new content
+        const fragment = document.createDocumentFragment();
+        
+        if (citations.length === 0) {
+            const noCitations = document.createElement('p');
+            noCitations.textContent = 'No citations found for this video.';
+            fragment.appendChild(noCitations);
+        } else {
+            citations.forEach(citation => {
+                const citationElement = document.createElement("div");
+                citationElement.style.cssText = `
+                    border: 1px solid #ddd;
+                    padding: 10px;
+                    margin-bottom: 10px;
+                    border-radius: 5px;
+                    background-color: white;
+                `;
+                
+                citationElement.innerHTML = `
+                    <p><strong>Source:</strong> ${citation.source}</p>
+                    <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+                    <p><strong>Added by:</strong> ${citation.username}</p>
+                    <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }).format(new Date(citation.dateAdded))}</p>
+                    <p>${citation.description}</p>
+                `;
+                
+                fragment.appendChild(citationElement);
+            });
+        }
 
-        if (aInRange && !bInRange) return -1;
-        if (!aInRange && bInRange) return 1;
-        return bStart - aStart; 
-    });
-
-    sampleCitations.forEach((citation, index) => {
-        const citationElement = document.createElement("div");
-        citationElement.style.cssText = `
-            border: 1px solid #ddd; 
-            padding: 10px; 
-            margin: 5px 0; 
-            background: ${isInTimestampRange(citation) ? '#fffae6' : '#fff'}; 
-        `;
-        citationElement.innerHTML = `
-            <p><strong>Username:</strong> ${citation.username}</p>
-            <p><strong>Date Posted:</strong> ${citation.datePosted}</p>
-            <p><strong>Timestamp Start:</strong> ${citation.timestampStart}</p>
-            <p><strong>Timestamp End:</strong> ${citation.timestampEnd}</p>
-            <p><strong>Reason for Citation:</strong> ${citation.reasonForCitation}</p>
-            <p><strong>Likes:</strong> <span id="likes-${index}">${citation.likes}</span></p>
-            <p><strong>Dislikes:</strong> <span id="dislikes-${index}">${citation.dislikes}</span></p>
-            <button class="like-btn" data-index="${index}">👍 Like</button>
-            <button class="dislike-btn" data-index="${index}">👎 Dislike</button>
-            <p><strong>Source:</strong> <a href="${citation.citationSource}" target="_blank">${citation.citationSource}</a></p>
-            <p><strong>Video:</strong> <a href="${citation.youtubeLink}" target="_blank">${citation.youtubeLink}</a></p>
-        `;
-
-        container.appendChild(citationElement);
-    });
-
-    // Add event listeners for like/dislike buttons
-    document.querySelectorAll(".like-btn").forEach(button => {
-        button.addEventListener("click", (event) => {
-            const index = event.target.getAttribute("data-index");
-            sampleCitations[index].likes += 1;
-            document.getElementById(`likes-${index}`).textContent = sampleCitations[index].likes;
-        });
-    });
-
-    document.querySelectorAll(".dislike-btn").forEach(button => {
-        button.addEventListener("click", (event) => {
-            const index = event.target.getAttribute("data-index");
-            sampleCitations[index].dislikes += 1;
-            document.getElementById(`dislikes-${index}`).textContent = sampleCitations[index].dislikes;
-        });
-    });
+        // Only update DOM if container is visible
+        if (container.style.display !== 'none') {
+            requestAnimationFrame(() => {
+                container.innerHTML = '';
+                container.appendChild(fragment);
+            });
+        }
+    } catch (error) {
+        console.error("Error loading citations:", error);
+        if (!container.hasChildNodes()) {
+            container.innerHTML = '<p>Error loading citations. Please try again later.</p>';
+        }
+    }
 }
 
-
-setInterval(() => {
-    loadCitationRequests();
-    loadCitations();
-}, 1000); // Updates every 1 seconds
-
+// Cache for current data to prevent unnecessary updates
+let currentCitations = [];
+let currentRequests = [];
 
 function forceUpdateTitle() {
     const titleElement = document.getElementById("citation-title");
     if (titleElement) {
-        titleElement.textContent = titleElement.textContent;
+        titleElement.style.display = 'none';
+        setTimeout(() => titleElement.style.display = 'block', 0);
     }
 }
 
-function debounce(func, delay) {
-    let timeoutId;
-    return function (...args) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func.apply(this, args), delay);
-    };
-}
-
-const debouncedInsertBelowTitle = debounce(insertBelowTitle, 300);
-const debouncedInsertCitationButtons = debounce(insertCitationButtons, 300);
-
-const watchForTitle = setInterval(() => {
-    const titleContainer = document.querySelector("ytd-watch-metadata");
-    if (titleContainer) {
-        clearInterval(watchForTitle);
-        debouncedInsertBelowTitle();
-        debouncedInsertCitationButtons();
+// Update citation requests and citations periodically with longer interval
+setInterval(() => {
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    if (videoId) {
+        loadCitationRequests();
+        loadCitations();
     }
-}, 500);
+}, 30000); // Updates every 30 seconds instead of 5 seconds
