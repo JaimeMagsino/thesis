@@ -287,3 +287,159 @@ textarea {
 .dislike-btn.active .vote-icon {
     filter: hue-rotate(200deg);
 }
+
+/* Citation Controls Container */
+#citation-controls {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 16px;
+    padding: 16px;
+}
+
+#citation-controls h3 {
+    color: #0f0f0f;
+    font-size: 16px;
+    margin: 0 0 12px 0;
+}
+
+/* Control Buttons */
+#citation-controls button {
+    background-color: #f2f2f2;
+    border: none;
+    border-radius: 18px;
+    color: #0f0f0f;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+    transition: all 0.2s ease;
+}
+
+#citation-controls button:hover {
+    background-color: #e5e5e5;
+}
+
+#citation-controls button.active {
+    background-color: #065fd4;
+    color: white;
+}
+
+/* Sort Dropdown */
+#sort-options {
+    background-color: #f2f2f2;
+    border: none;
+    border-radius: 18px;
+    color: #0f0f0f;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 8px 16px;
+    outline: none;
+}
+
+/* Citation and Request Items */
+.citation-item,
+.citation-request {
+    background-color: #ffffff;
+    border-left: 4px solid #065fd4;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    margin: 12px 0;
+    padding: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.citation-item:hover,
+.citation-request:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.citation-item p,
+.citation-request p {
+    color: #0f0f0f;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 8px 0;
+}
+
+.citation-item strong,
+.citation-request strong {
+    color: #606060;
+    font-weight: 500;
+}
+
+/* Vote Controls */
+.vote-controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.vote-btn {
+    align-items: center;
+    background: none;
+    border: none;
+    color: #606060;
+    cursor: pointer;
+    display: flex;
+    font-size: 14px;
+    gap: 4px;
+    padding: 6px 12px;
+    transition: all 0.2s ease;
+}
+
+.vote-btn:hover {
+    background-color: #f2f2f2;
+    border-radius: 18px;
+}
+
+.vote-btn.active {
+    color: #065fd4;
+}
+
+.vote-icon {
+    font-size: 16px;
+}
+
+.vote-count {
+    font-weight: 500;
+}
+
+/* Respond Button */
+.respond-btn {
+    background-color: #065fd4;
+    border: none;
+    border-radius: 18px;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    margin-top: 12px;
+    padding: 8px 16px;
+    transition: background-color 0.2s ease;
+}
+
+.respond-btn:hover {
+    background-color: #0356c6;
+}
+
+/* Empty State */
+#citation-requests-container p,
+#citations-container p {
+    color: #606060;
+    font-size: 14px;
+    text-align: center;
+    padding: 24px 0;
+}
+
+/* Time Range Styling */
+.time-range {
+    background-color: #f2f2f2;
+    border-radius: 4px;
+    color: #606060;
+    display: inline-block;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 13px;
+    padding: 2px 6px;
+}
