@@ -77,6 +77,26 @@ function convertFromFirestore(firestoreDoc) {
     }, {});
 }
 
+// Helper function to migrate old data format to new
+async function migrateCitationData(videoId, docId, oldData) {
+    try {
+        // Create new data object with citationTitle instead of source
+        const newData = {
+            ...oldData,
+            citationTitle: oldData.source,
+        };
+        delete newData.source;  // Remove old field
+
+        // Update the document with new format
+        await firestoreRequest(`citations_${videoId}`, docId, 'PATCH', newData);
+        console.log('Successfully migrated citation:', docId);
+        return true;
+    } catch (error) {
+        console.error('Error migrating citation:', error);
+        return false;
+    }
+}
+
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Received message:', request);
@@ -129,14 +149,24 @@ async function handleGetCitations(videoId) {
         // List all documents in the video's citations collection
         const result = await firestoreRequest(`citations_${videoId}`);
         
-        // Convert Firestore documents to regular objects
-        const citations = result.documents ? result.documents.map(doc => {
+        // Convert Firestore documents to regular objects and handle migration
+        const citations = result.documents ? await Promise.all(result.documents.map(async doc => {
             const data = convertFromFirestore(doc);
+            const docId = doc.name.split('/').pop();
+
+            // Check if document needs migration (has 'source' instead of 'citationTitle')
+            if (data.source && !data.citationTitle) {
+                await migrateCitationData(videoId, docId, data);
+                // Update local data to use new field name
+                data.citationTitle = data.source;
+                delete data.source;
+            }
+
             return {
-                id: doc.name.split('/').pop(),
+                id: docId,
                 ...data
             };
-        }) : [];
+        })) : [];
 
         // Sort by timestamp descending
         citations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));

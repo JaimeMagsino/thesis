@@ -106,7 +106,7 @@ async function setupFormListeners() {
             try {
                 const citationData = {
                     videoId,
-                    source: form.source.value,
+                    citationTitle: form.citationTitle.value,
                     timestampStart: form.timestampStart.value,
                     timestampEnd: form.timestampEnd.value,
                     description: form.description.value,
@@ -352,7 +352,7 @@ async function loadCitations() {
                         `;
                         
                         citationElement.innerHTML = `
-                            <p><strong>Citation Title:</strong> ${citation.source}</p>
+                            <p><strong>Citation Title:</strong> ${citation.citationTitle}</p>
                             <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
                             <p><strong>Added by:</strong> ${citation.username}</p>
                             <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
