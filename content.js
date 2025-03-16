@@ -195,6 +195,7 @@ function insertCitationButtons() {
             <button id="citations-btn">Citations</button>
             <select id="sort-options">
                 <option value="timestamp">Sort by Date</option>
+                <option value="likes">Sort by Likes</option>
             </select>
         </div>
         <h3 id="citation-title">Citations</h3>
@@ -216,6 +217,37 @@ function insertCitationButtons() {
     // Automatically show the Citation Requests tab
     switchTab("Citation Requests");
     loadCitationRequests();
+
+    // Add event listener for sort options
+    document.getElementById('sort-options').addEventListener('change', async (e) => {
+        currentSortOption = e.target.value;
+        // Reload citations when sorting by likes
+        if (currentSortOption === 'likes') {
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            if (videoId) {
+                try {
+                    const response = await chrome.runtime.sendMessage({
+                        type: 'getCitations',
+                        videoId: videoId
+                    });
+                    if (response.success) {
+                        currentCitations = response.citations || [];
+                    }
+                } catch (error) {
+                    console.error("Error reloading citations:", error);
+                }
+            }
+        }
+        // Refresh the current view
+        if (document.getElementById('citation-requests-container').style.display === 'none') {
+            loadCitations();
+        } else {
+            loadCitationRequests();
+        }
+    });
+
+    // Set initial sort option to 'likes'
+    document.getElementById('sort-options').value = 'likes';
 }
 
 function switchTab(tabName) {
@@ -248,7 +280,7 @@ async function loadCitationRequests() {
         
         // Only update DOM if container is visible and data has changed
         if (container.style.display !== 'none' && JSON.stringify(requests) !== JSON.stringify(currentRequests)) {
-            currentRequests = requests;
+            currentRequests = sortItems(requests, currentSortOption, 'request');
             requestAnimationFrame(() => {
                 container.innerHTML = '';
                 const fragment = document.createDocumentFragment();
@@ -333,20 +365,23 @@ async function loadCitations() {
         const citations = citationsResponse.citations || [];
         userVotes = votesResponse.success ? votesResponse.votes : {};
         
+        // Sort the citations before updating the DOM
+        const sortedCitations = sortItems(citations, currentSortOption, 'citation');
+        
         // Only update DOM if container is visible and data has changed
-        if (container.style.display !== 'none' && JSON.stringify(citations) !== JSON.stringify(currentCitations)) {
-            currentCitations = citations;
+        if (container.style.display !== 'none' && JSON.stringify(sortedCitations) !== JSON.stringify(currentCitations)) {
+            currentCitations = sortedCitations;
 
             requestAnimationFrame(() => {
                 container.innerHTML = '';
                 const fragment = document.createDocumentFragment();
                 
-                if (citations.length === 0) {
+                if (sortedCitations.length === 0) {
                     const noCitations = document.createElement('p');
                     noCitations.textContent = 'No citations found for this video.';
                     fragment.appendChild(noCitations);
                 } else {
-                    citations.forEach(citation => {
+                    sortedCitations.forEach(citation => {
                         const citationElement = document.createElement("div");
                         citationElement.className = "citation-item";
                         citationElement.dataset.start = parseTimestamp(citation.timestampStart);
@@ -411,6 +446,7 @@ async function loadCitations() {
             container.innerHTML = '<p>Error loading citations. Please try again later.</p>';
         }
     }
+    loadCitationRequests();
 }
 
 // Handle voting on citations
@@ -500,6 +536,33 @@ async function handleVote(citationId, voteType) {
 let currentCitations = [];
 let currentRequests = [];
 let userVotes = {};
+let currentSortOption = 'likes'; // Default to likes for citations
+
+// Add sort function
+function sortItems(items, sortBy, itemType = 'citation') {
+    if (!Array.isArray(items)) {
+        console.error('sortItems received non-array:', items);
+        return [];
+    }
+    
+    // Use timestamp as default for requests, likes for citations
+    if (!sortBy) {
+        sortBy = itemType === 'request' ? 'timestamp' : 'likes';
+    }
+    
+    return [...items].sort((a, b) => {
+        switch(sortBy) {
+            case 'timestamp':
+                return new Date(b.dateAdded || b.timestamp) - new Date(a.dateAdded || a.timestamp);
+            case 'likes':
+                const likesA = parseInt(a.likes || 0);
+                const likesB = parseInt(b.likes || 0);
+                return likesB - likesA;
+            default:
+                return 0;
+        }
+    });
+}
 
 function forceUpdateTitle() {
     const titleElement = document.getElementById("citation-title");
