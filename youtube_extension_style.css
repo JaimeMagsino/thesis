@@ -522,3 +522,62 @@ textarea {
 #citations-container::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* Timestamp Input Styling */
+.timestamp-input {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f8f8f8;
+    border-radius: 4px;
+    padding: 4px 8px;
+    border: 1px solid #d3d3d3;
+}
+
+.timestamp-input:focus-within {
+    border-color: #065fd4;
+    background: #fff;
+}
+
+.timestamp-input input[type="number"] {
+    width: 40px;
+    border: none;
+    background: transparent;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+    padding: 2px;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.timestamp-input input[type="number"]::-webkit-outer-spin-button,
+.timestamp-input input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.timestamp-input span {
+    color: #666;
+    font-weight: bold;
+    user-select: none;
+}
+
+.timestamp-input input[type="number"]:focus {
+    outline: none;
+    background: #e8f0fe;
+    border-radius: 2px;
+}
+
+.timestamp-input input[type="number"]::placeholder {
+    color: #999;
+}
+
+/* Invalid state */
+.timestamp-input input[type="number"]:invalid {
+    background: #fff0f0;
+}
+
+.timestamp-input.invalid {
+    border-color: #dc3545;
+    background: #fff0f0;
+}

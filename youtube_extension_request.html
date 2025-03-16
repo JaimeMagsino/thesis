@@ -3,25 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Request for Citation</title>
+    <title>Request Citation</title>
     <link rel="stylesheet" href="youtube_extension_style.css">
 </head>
 <body>
-    <h2>Request for Citation</h2>
+    <h2>Request a Citation</h2>
     <form id="request-form">
         <div class="form-group">
-            <label for="timestampStart">Start Timestamp:</label>
-            <input type="text" id="timestampStart" name="timestampStart" placeholder="Start (e.g., 00:01:23)" required>
+            <label>Start Timestamp:</label>
+            <div class="timestamp-input">
+                <input type="number" id="startHours" min="0" max="99" placeholder="00" required>
+                <span>:</span>
+                <input type="number" id="startMinutes" min="0" max="59" placeholder="00" required>
+                <span>:</span>
+                <input type="number" id="startSeconds" min="0" max="59" placeholder="00" required>
+                <input type="hidden" id="timestampStart" name="timestampStart">
+            </div>
         </div>
 
         <div class="form-group">
-            <label for="timestampEnd">End Timestamp:</label>
-            <input type="text" id="timestampEnd" name="timestampEnd" placeholder="End (e.g., 00:02:45)" required>
+            <label>End Timestamp:</label>
+            <div class="timestamp-input">
+                <input type="number" id="endHours" min="0" max="99" placeholder="00" required>
+                <span>:</span>
+                <input type="number" id="endMinutes" min="0" max="59" placeholder="00" required>
+                <span>:</span>
+                <input type="number" id="endSeconds" min="0" max="59" placeholder="00" required>
+                <input type="hidden" id="timestampEnd" name="timestampEnd">
+            </div>
         </div>
 
         <div class="form-group">
-            <label for="reason">Reason for Citation:</label>
-            <textarea id="reason" name="reason" placeholder="Enter reason for citation..." required></textarea>
+            <label for="reason">Reason for Request:</label>
+            <textarea id="reason" name="reason" placeholder="Why do you want this part of the video cited?" required></textarea>
         </div>
 
         <button type="submit" id="submit-btn">Submit Request</button>

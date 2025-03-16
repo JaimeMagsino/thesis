@@ -180,6 +180,152 @@ async function setupFormListeners() {
     }
 }
 
+// Time input handling functions
+function padNumber(num) {
+    return num.toString().padStart(2, '0');
+}
+
+function formatTimestamp(hours, minutes, seconds) {
+    return `${padNumber(hours)}:${padNumber(minutes)}:${padNumber(seconds)}`;
+}
+
+function validateTimeInput(input, max) {
+    let value = parseInt(input.value) || 0;
+    if (value < 0) value = 0;
+    if (value > max) value = max;
+    input.value = padNumber(value);
+    return value;
+}
+
+function setupTimeInputs() {
+    const timeInputs = {
+        start: {
+            hours: document.getElementById('startHours'),
+            minutes: document.getElementById('startMinutes'),
+            seconds: document.getElementById('startSeconds'),
+            hidden: document.getElementById('timestampStart')
+        },
+        end: {
+            hours: document.getElementById('endHours'),
+            minutes: document.getElementById('endMinutes'),
+            seconds: document.getElementById('endSeconds'),
+            hidden: document.getElementById('timestampEnd')
+        }
+    };
+
+    // Add event listeners for all time inputs
+    ['start', 'end'].forEach(type => {
+        const inputs = timeInputs[type];
+        
+        // Handle hours input
+        inputs.hours.addEventListener('input', () => {
+            const value = validateTimeInput(inputs.hours, 99);
+            inputs.hidden.value = formatTimestamp(
+                value,
+                parseInt(inputs.minutes.value) || 0,
+                parseInt(inputs.seconds.value) || 0
+            );
+        });
+
+        // Handle minutes input
+        inputs.minutes.addEventListener('input', () => {
+            const value = validateTimeInput(inputs.minutes, 59);
+            inputs.hidden.value = formatTimestamp(
+                parseInt(inputs.hours.value) || 0,
+                value,
+                parseInt(inputs.seconds.value) || 0
+            );
+        });
+
+        // Handle seconds input
+        inputs.seconds.addEventListener('input', () => {
+            const value = validateTimeInput(inputs.seconds, 59);
+            inputs.hidden.value = formatTimestamp(
+                parseInt(inputs.hours.value) || 0,
+                parseInt(inputs.minutes.value) || 0,
+                value
+            );
+        });
+
+        // Handle focus events for better UX
+        [inputs.hours, inputs.minutes, inputs.seconds].forEach(input => {
+            input.addEventListener('focus', () => {
+                input.select();
+            });
+
+            input.addEventListener('blur', () => {
+                input.value = padNumber(parseInt(input.value) || 0);
+            });
+        });
+    });
+
+    // Initialize hidden inputs with default values
+    timeInputs.start.hidden.value = '00:00:00';
+    timeInputs.end.hidden.value = '00:00:00';
+}
+
+// Initialize time inputs when the form is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    setupTimeInputs();
+});
+
+// Modify the form submission handler
+document.getElementById('citation-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    
+    // Get the current video ID
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    if (!videoId) {
+        console.error('No video ID found');
+        return;
+    }
+
+    // Validate timestamps
+    const startParts = form.timestampStart.value.split(':').map(Number);
+    const endParts = form.timestampEnd.value.split(':').map(Number);
+    
+    const startSeconds = startParts[0] * 3600 + startParts[1] * 60 + startParts[2];
+    const endSeconds = endParts[0] * 3600 + endParts[1] * 60 + endParts[2];
+
+    if (startSeconds >= endSeconds) {
+        alert('End time must be after start time');
+        return;
+    }
+
+    try {
+        const citationData = {
+            videoId,
+            citationTitle: form.citationTitle.value,
+            timestampStart: form.timestampStart.value,
+            timestampEnd: form.timestampEnd.value,
+            description: form.description.value,
+            username: 'Anonymous', // Replace with actual user authentication
+            dateAdded: new Date().toISOString()
+        };
+
+        const response = await chrome.runtime.sendMessage({
+            type: 'addCitation',
+            data: citationData
+        });
+
+        if (response.success) {
+            // Clear form and close popup
+            form.reset();
+            window.close();
+            
+            // Notify content script to refresh citations
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                chrome.tabs.sendMessage(tabs[0].id, {type: 'refreshCitations'});
+            });
+        } else {
+            console.error('Failed to add citation:', response.error);
+        }
+    } catch (error) {
+        console.error('Error adding citation:', error);
+    }
+});
+
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
     
