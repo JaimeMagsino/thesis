@@ -173,7 +173,18 @@ async function setupFormListeners() {
             }
         });
     }
+
+    const requestForm = document.getElementById('request-form');
+    if (requestForm && !requestForm.dataset.listener) {
+        requestForm.dataset.listener = "true";
+        requestForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Citation Request Submitted!');
+            requestForm.reset();
+        });
+    }
 }
+
 
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
