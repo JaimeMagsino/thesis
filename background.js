@@ -97,7 +97,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     if (request.type === 'updateCitationVotes') {
-        handleUpdateCitationVotes(request.videoId, request.citationId, request.votes).then(sendResponse);
+        handleUpdateCitationVotes(request.videoId, request.citationId, request.votes, request.userVote).then(sendResponse);
+        return true;
+    }
+    if (request.type === 'getUserVotes') {
+        handleGetUserVotes(request.videoId).then(sendResponse);
         return true;
     }
 });
@@ -204,9 +208,9 @@ async function handleGetRequests(videoId) {
     }
 }
 
-async function handleUpdateCitationVotes(videoId, citationId, votes) {
+async function handleUpdateCitationVotes(videoId, citationId, votes, userVote) {
     try {
-        console.log('Updating citation votes:', { videoId, citationId, votes });
+        console.log('Updating citation votes:', { videoId, citationId, votes, userVote });
         
         // Get current citation data
         const citationRef = `citations_${videoId}/${citationId}`;
@@ -225,10 +229,38 @@ async function handleUpdateCitationVotes(videoId, citationId, votes) {
 
         // Update the document
         await firestoreRequest(`citations_${videoId}`, citationId, 'PATCH', updatedData);
+
+        // Store user's vote in chrome.storage.local
+        const storageKey = `votes_${videoId}`;
+        const existingVotes = await new Promise(resolve => {
+            chrome.storage.local.get(storageKey, (result) => {
+                resolve(result[storageKey] || {});
+            });
+        });
+
+        existingVotes[citationId] = userVote;
+        await new Promise(resolve => {
+            chrome.storage.local.set({ [storageKey]: existingVotes }, resolve);
+        });
         
         return { success: true };
     } catch (error) {
         console.error('Error updating citation votes:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function handleGetUserVotes(videoId) {
+    try {
+        const storageKey = `votes_${videoId}`;
+        const result = await new Promise(resolve => {
+            chrome.storage.local.get(storageKey, (result) => {
+                resolve(result[storageKey] || {});
+            });
+        });
+        return { success: true, votes: result };
+    } catch (error) {
+        console.error('Error getting user votes:', error);
         return { success: false, error: error.message };
     }
 }
