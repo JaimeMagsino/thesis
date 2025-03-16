@@ -274,19 +274,24 @@ async function loadCitationRequests() {
                         `;
                         
                         citationElement.innerHTML = `
-                            <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
-                            <p><strong>Reason:</strong> ${request.reason}</p>
-                            <p><strong>Requested by:</strong> ${request.username}</p>
-                            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                            }).format(new Date(request.timestamp))}</p>
+                            <div class="request-content">
+                                <strong>Time Range:</strong>
+                                <span class="time-range">${request.timestampStart} - ${request.timestampEnd}</span>
+                                <strong>Requested by:</strong>
+                                <span>${request.username}</span>
+                                <strong>Date:</strong>
+                                <span>${new Intl.DateTimeFormat('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                }).format(new Date(request.timestamp))}</span>
+                                <div class="description-area">${request.reason}</div>
+                            </div>
                             <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
-                                Respond with Citation
+                                Respond
                             </button>
                         `;
                         
@@ -353,18 +358,23 @@ async function loadCitations() {
                         `;
                         
                         citationElement.innerHTML = `
-                            <p><strong>Citation Title:</strong> ${citation.citationTitle}</p>
-                            <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
-                            <p><strong>Added by:</strong> ${citation.username}</p>
-                            <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                            }).format(new Date(citation.dateAdded))}</p>
-                            <p>${citation.description}</p>
+                            <div class="citation-content">
+                                <div class="citation-title">${citation.citationTitle}</div>
+                                <strong>Time Range:</strong>
+                                <span class="time-range">${citation.timestampStart} - ${citation.timestampEnd}</span>
+                                <strong>Added by:</strong>
+                                <span>${citation.username}</span>
+                                <strong>Date:</strong>
+                                <span>${new Intl.DateTimeFormat('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                }).format(new Date(citation.dateAdded))}</span>
+                                <div class="description-area">${citation.description}</div>
+                            </div>
                             <div class="vote-controls" data-citation-id="${citation.id}">
                                 <button class="vote-btn like-btn ${citation.userVote === 'like' ? 'active' : ''}" title="Like">
                                     <span class="vote-icon">👍</span>
