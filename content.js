@@ -195,6 +195,7 @@ function insertCitationButtons() {
             <button id="citations-btn">Citations</button>
             <select id="sort-options">
                 <option value="timestamp">Sort by Date</option>
+                <option value="likes">Sort by Likes</option>
             </select>
         </div>
         <h3 id="citation-title">Citations</h3>
@@ -216,6 +217,25 @@ function insertCitationButtons() {
     // Automatically show the Citation Requests tab
     switchTab("Citation Requests");
     loadCitationRequests();
+
+    // Add event listener for sort options
+    document.getElementById('sort-options').addEventListener('change', (e) => {
+        currentSortOption = e.target.value;
+        const citationsContainer = document.getElementById('citations-container');
+        const requestsContainer = document.getElementById('citation-requests-container');
+        
+        // Update the current view immediately without reloading
+        if (citationsContainer.style.display !== 'none') {
+            const sortedCitations = sortItems(currentCitations, currentSortOption, 'citation');
+            updateCitationsList(sortedCitations, citationsContainer);
+        } else if (requestsContainer.style.display !== 'none') {
+            const sortedRequests = sortItems(currentRequests, currentSortOption, 'request');
+            updateRequestsList(sortedRequests, requestsContainer);
+        }
+    });
+
+    // Set initial sort option to 'likes'
+    document.getElementById('sort-options').value = 'likes';
 }
 
 function switchTab(tabName) {
@@ -248,7 +268,7 @@ async function loadCitationRequests() {
         
         // Only update DOM if container is visible and data has changed
         if (container.style.display !== 'none' && JSON.stringify(requests) !== JSON.stringify(currentRequests)) {
-            currentRequests = requests;
+            currentRequests = sortItems(requests, currentSortOption, 'request');
             requestAnimationFrame(() => {
                 container.innerHTML = '';
                 const fragment = document.createDocumentFragment();
@@ -333,20 +353,23 @@ async function loadCitations() {
         const citations = citationsResponse.citations || [];
         userVotes = votesResponse.success ? votesResponse.votes : {};
         
+        // Sort the citations before updating the DOM
+        const sortedCitations = sortItems(citations, currentSortOption, 'citation');
+        
         // Only update DOM if container is visible and data has changed
-        if (container.style.display !== 'none' && JSON.stringify(citations) !== JSON.stringify(currentCitations)) {
-            currentCitations = citations;
+        if (container.style.display !== 'none' && JSON.stringify(sortedCitations) !== JSON.stringify(currentCitations)) {
+            currentCitations = sortedCitations;
 
             requestAnimationFrame(() => {
                 container.innerHTML = '';
                 const fragment = document.createDocumentFragment();
                 
-                if (citations.length === 0) {
+                if (sortedCitations.length === 0) {
                     const noCitations = document.createElement('p');
                     noCitations.textContent = 'No citations found for this video.';
                     fragment.appendChild(noCitations);
                 } else {
-                    citations.forEach(citation => {
+                    sortedCitations.forEach(citation => {
                         const citationElement = document.createElement("div");
                         citationElement.className = "citation-item";
                         citationElement.dataset.start = parseTimestamp(citation.timestampStart);
@@ -411,6 +434,7 @@ async function loadCitations() {
             container.innerHTML = '<p>Error loading citations. Please try again later.</p>';
         }
     }
+    loadCitationRequests();
 }
 
 // Handle voting on citations
@@ -496,10 +520,163 @@ async function handleVote(citationId, voteType) {
     }
 }
 
+// Helper function to update citations list
+function updateCitationsList(citations, container) {
+    if (!container) return;
+    
+    const fragment = document.createDocumentFragment();
+    
+    if (citations.length === 0) {
+        const noCitations = document.createElement('p');
+        noCitations.textContent = 'No citations found for this video.';
+        fragment.appendChild(noCitations);
+    } else {
+        citations.forEach(citation => {
+            const citationElement = document.createElement("div");
+            citationElement.className = "citation-item";
+            citationElement.dataset.start = parseTimestamp(citation.timestampStart);
+            citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
+            citationElement.style.cssText = `
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin-bottom: 10px;
+                border-radius: 5px;
+                background-color: white;
+                transition: background-color 0.3s;
+            `;
+
+            const userVote = userVotes[citation.id] || null;
+            
+            citationElement.innerHTML = `
+                <p><strong>Source:</strong> ${citation.source}</p>
+                <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+                <p><strong>Added by:</strong> ${citation.username}</p>
+                <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).format(new Date(citation.dateAdded))}</p>
+                <p>${citation.description}</p>
+                <div class="vote-controls" data-citation-id="${citation.id}">
+                    <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
+                            title="${userVote === 'like' ? 'Remove like' : 'Like'}">
+                        <span class="vote-icon">👍</span>
+                        <span class="vote-count">${citation.likes || 0}</span>
+                    </button>
+                    <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
+                            title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
+                        <span class="vote-icon">👎</span>
+                        <span class="vote-count">${citation.dislikes || 0}</span>
+                    </button>
+                </div>
+            `;
+
+            // Add vote event listeners
+            const voteControls = citationElement.querySelector('.vote-controls');
+            const likeBtn = voteControls.querySelector('.like-btn');
+            const dislikeBtn = voteControls.querySelector('.dislike-btn');
+
+            likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
+            dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
+            
+            fragment.appendChild(citationElement);
+        });
+    }
+
+    container.innerHTML = '';
+    container.appendChild(fragment);
+    updateHighlighting();
+}
+
+// Helper function to update requests list
+function updateRequestsList(requests, container) {
+    if (!container) return;
+    
+    const fragment = document.createDocumentFragment();
+    
+    if (requests.length === 0) {
+        const noRequests = document.createElement('p');
+        noRequests.textContent = 'No citation requests yet.';
+        fragment.appendChild(noRequests);
+    } else {
+        requests.forEach(request => {
+            const requestElement = document.createElement("div");
+            requestElement.className = "citation-request";
+            requestElement.dataset.start = parseTimestamp(request.timestampStart);
+            requestElement.dataset.end = parseTimestamp(request.timestampEnd);
+            requestElement.style.cssText = `
+                border: 1px solid #ddd;
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 5px;
+                background-color: #f8f9fa;
+                transition: background-color 0.3s;
+            `;
+            
+            requestElement.innerHTML = `
+                <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
+                <p><strong>Reason:</strong> ${request.reason}</p>
+                <p><strong>Requested by:</strong> ${request.username}</p>
+                <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).format(new Date(request.timestamp))}</p>
+                <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
+                    Respond with Citation
+                </button>
+            `;
+            
+            fragment.appendChild(requestElement);
+        });
+    }
+
+    container.innerHTML = '';
+    container.appendChild(fragment);
+    updateHighlighting();
+}
+
 // Cache for current data to prevent unnecessary updates
 let currentCitations = [];
 let currentRequests = [];
 let userVotes = {};
+let currentSortOption = 'likes'; // Default to likes for citations
+
+// Add sort function
+function sortItems(items, sortBy, itemType = 'citation') {
+    if (!Array.isArray(items)) {
+        console.error('sortItems received non-array:', items);
+        return [];
+    }
+    
+    // Use timestamp as default for requests, likes for citations
+    if (!sortBy) {
+        sortBy = itemType === 'request' ? 'timestamp' : 'likes';
+    }
+    
+    return [...items].sort((a, b) => {
+        switch(sortBy) {
+            case 'timestamp':
+                // Get the timestamp for each item
+                const dateA = new Date(a.dateAdded || a.timestamp).getTime();
+                const dateB = new Date(b.dateAdded || b.timestamp).getTime();
+                // Sort by most recent first
+                return dateB - dateA;
+            case 'likes':
+                const likesA = parseInt(a.likes || 0);
+                const likesB = parseInt(b.likes || 0);
+                return likesB - likesA;
+            default:
+                return 0;
+        }
+    });
+}
 
 function forceUpdateTitle() {
     const titleElement = document.getElementById("citation-title");
