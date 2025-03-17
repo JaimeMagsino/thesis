@@ -33,6 +33,7 @@ function waitForDependencies() {
 function init() {
     insertBelowTitle();
     insertCitationButtons();
+    migrateCitationsToNewFormat();
     console.log("Extension initialized");
 }
 
@@ -103,12 +104,31 @@ async function setupFormListeners() {
             e.preventDefault();
             const videoId = new URLSearchParams(window.location.search).get('v');
             
+            // Validate timestamp format
+            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+            const startTime = form.timestampStart.value;
+            const endTime = form.timestampEnd.value;
+
+            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
+                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
+                return;
+            }
+
+            // Compare timestamps
+            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+
+            if (startSeconds >= endSeconds) {
+                alert('Start timestamp must be less than end timestamp');
+                return;
+            }
+            
             try {
                 const citationData = {
                     videoId,
-                    source: form.source.value,
-                    timestampStart: form.timestampStart.value,
-                    timestampEnd: form.timestampEnd.value,
+                    citationTitle: form.citationTitle.value,
+                    timestampStart: startTime,
+                    timestampEnd: endTime,
                     description: form.description.value,
                     username: 'Anonymous', // Replace with actual user authentication
                     dateAdded: new Date().toISOString()
@@ -140,14 +160,33 @@ async function setupFormListeners() {
             e.preventDefault();
             const videoId = new URLSearchParams(window.location.search).get('v');
             
+            // Validate timestamp format
+            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+            const startTime = requestForm.timestampStart.value;
+            const endTime = requestForm.timestampEnd.value;
+
+            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
+                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
+                return;
+            }
+
+            // Compare timestamps
+            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+
+            if (startSeconds >= endSeconds) {
+                alert('Start timestamp must be less than end timestamp');
+                return;
+            }
+            
             try {
                 // Get current timestamp in ISO format
                 const currentTime = new Date().toISOString();
                 
                 const requestData = {
                     videoId,
-                    timestampStart: requestForm.timestampStart.value,
-                    timestampEnd: requestForm.timestampEnd.value,
+                    timestampStart: startTime,
+                    timestampEnd: endTime,
                     reason: requestForm.reason.value,
                     username: 'Anonymous',
                     timestamp: currentTime // Use consistent timestamp field name
@@ -293,19 +332,24 @@ async function loadCitationRequests() {
                         `;
                         
                         citationElement.innerHTML = `
-                            <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
-                            <p><strong>Reason:</strong> ${request.reason}</p>
-                            <p><strong>Requested by:</strong> ${request.username}</p>
-                            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                            }).format(new Date(request.timestamp))}</p>
+                            <div class="request-content">
+                                <strong>Time Range:</strong>
+                                <span class="time-range">${request.timestampStart} - ${request.timestampEnd}</span>
+                                <strong>Requested by:</strong>
+                                <span>${request.username}</span>
+                                <strong>Date:</strong>
+                                <span>${new Intl.DateTimeFormat('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                }).format(new Date(request.timestamp))}</span>
+                                <div class="description-area">${request.reason}</div>
+                            </div>
                             <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
-                                Respond with Citation
+                                Respond
                             </button>
                         `;
                         
@@ -386,18 +430,23 @@ async function loadCitations() {
                         const userVote = userVotes[citation.id] || null;
                         
                         citationElement.innerHTML = `
-                            <p><strong>Source:</strong> ${citation.source}</p>
-                            <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
-                            <p><strong>Added by:</strong> ${citation.username}</p>
-                            <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                            }).format(new Date(citation.dateAdded))}</p>
-                            <p>${citation.description}</p>
+                            <div class="citation-content">
+                                <div class="citation-title">${citation.citationTitle}</div>
+                                <strong>Time Range:</strong>
+                                <span class="time-range">${citation.timestampStart} - ${citation.timestampEnd}</span>
+                                <strong>Added by:</strong>
+                                <span>${citation.username}</span>
+                                <strong>Date:</strong>
+                                <span>${new Intl.DateTimeFormat('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                }).format(new Date(citation.dateAdded))}</span>
+                                <div class="description-area">${citation.description}</div>
+                            </div>
                             <div class="vote-controls" data-citation-id="${citation.id}">
                                 <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
                                         title="${userVote === 'like' ? 'Remove like' : 'Like'}">
@@ -875,5 +924,24 @@ function forceUpdateTitle() {
     if (titleElement) {
         titleElement.style.display = 'none';
         setTimeout(() => titleElement.style.display = 'block', 0);
+async function migrateCitationsToNewFormat() {
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    if (!videoId) return;
+
+    try {
+        const response = await chrome.runtime.sendMessage({
+            type: 'migrateAllCitations',
+            videoId
+        });
+
+        if (response.success) {
+            console.log(`Successfully migrated ${response.migratedCount} citations`);
+            // Refresh the citations list
+            loadCitations();
+        } else {
+            console.error('Migration failed:', response.error);
+        }
+    } catch (error) {
+        console.error('Error during migration:', error);
     }
 }

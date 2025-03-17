@@ -77,12 +77,68 @@ function convertFromFirestore(firestoreDoc) {
     }, {});
 }
 
+// Helper function to migrate old data format to new
+async function migrateCitationData(videoId, docId, oldData) {
+    try {
+        // Create new data object with citationTitle instead of source
+        const newData = {
+            ...oldData,
+            citationTitle: oldData.source,
+        };
+        delete newData.source;  // Remove old field
+
+        // Update the document with new format
+        await firestoreRequest(`citations_${videoId}`, docId, 'PATCH', newData);
+        console.log('Successfully migrated citation:', docId);
+        return true;
+    } catch (error) {
+        console.error('Error migrating citation:', error);
+        return false;
+    }
+}
+
+// Migrate all citations in a collection from source to citationTitle
+async function migrateAllCitations(videoId) {
+    try {
+        console.log('Starting bulk migration for video:', videoId);
+        const result = await firestoreRequest(`citations_${videoId}`);
+        
+        if (!result.documents) {
+            console.log('No documents to migrate');
+            return { success: true, migratedCount: 0 };
+        }
+
+        let migratedCount = 0;
+        for (const doc of result.documents) {
+            const data = convertFromFirestore(doc);
+            const docId = doc.name.split('/').pop();
+            
+            if (data.source && !data.citationTitle) {
+                const newData = {
+                    ...data,
+                    citationTitle: data.source
+                };
+                delete newData.source;
+
+                await firestoreRequest(`citations_${videoId}`, docId, 'PATCH', newData);
+                migratedCount++;
+            }
+        }
+        
+        console.log(`Migration complete. Migrated ${migratedCount} documents`);
+        return { success: true, migratedCount };
+    } catch (error) {
+        console.error('Error during bulk migration:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Received message:', request);
     if (request.type === 'addCitation') {
         handleAddCitation(request.data).then(sendResponse);
-        return true; // Will respond asynchronously
+        return true;
     }
     if (request.type === 'getCitations') {
         handleGetCitations(request.videoId).then(sendResponse);
@@ -104,19 +160,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleGetUserVotes(request.videoId).then(sendResponse);
         return true;
     }
+    if (request.type === 'migrateAllCitations') {
+        migrateAllCitations(request.videoId).then(sendResponse);
+        return true;
+    }
 });
 
 async function handleAddCitation(data) {
     try {
         console.log('Adding citation:', data);
+        // Ensure we're using citationTitle instead of source
+        const { source, ...restData } = data;
         const citation = {
-            ...data,
+            ...restData,
+            citationTitle: data.citationTitle || data.source, // Handle both old and new format
             timestamp: new Date().toISOString(),
             likes: 0,
             dislikes: 0
         };
         
-        // Create a new document in the citations collection
         const result = await firestoreRequest(`citations_${data.videoId}`, null, 'POST', citation);
         const docId = result.name.split('/').pop();
         console.log('Citation added successfully:', docId);
@@ -133,14 +195,24 @@ async function handleGetCitations(videoId) {
         // List all documents in the video's citations collection
         const result = await firestoreRequest(`citations_${videoId}`);
         
-        // Convert Firestore documents to regular objects
-        const citations = result.documents ? result.documents.map(doc => {
+        // Convert Firestore documents to regular objects and handle migration
+        const citations = result.documents ? await Promise.all(result.documents.map(async doc => {
             const data = convertFromFirestore(doc);
+            const docId = doc.name.split('/').pop();
+
+            // Check if document needs migration (has 'source' instead of 'citationTitle')
+            if (data.source && !data.citationTitle) {
+                await migrateCitationData(videoId, docId, data);
+                // Update local data to use new field name
+                data.citationTitle = data.source;
+                delete data.source;
+            }
+
             return {
-                id: doc.name.split('/').pop(),
+                id: docId,
                 ...data
             };
-        }) : [];
+        })) : [];
 
         // Sort by timestamp descending
         citations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
