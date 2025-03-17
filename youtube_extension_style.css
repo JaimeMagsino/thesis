@@ -199,11 +199,16 @@ textarea {
     cursor: pointer;
     margin-top: 8px;
     font-weight: bold;
-    transition: background-color 0.2s;
+    width: 100%;
+    transition: background-color 0.2s ease;
 }
 
 .respond-btn:hover {
-    background-color: #0056c7;
+    background-color: #0056bf;
+}
+
+.respond-btn:active {
+    background-color: #004ba5;
 }
 
 /* Active tab styles */

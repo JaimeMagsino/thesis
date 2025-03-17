@@ -10,7 +10,7 @@ window.respondWithCitation = function(start, end, reason) {
             form.timestampStart.value = start;
             form.timestampEnd.value = end;
             form.description.value = `Response to request: ${reason}`;
-            form.source.focus();
+            form.citationTitle.focus();
         }
     });
 };
@@ -430,23 +430,18 @@ async function loadCitations() {
                         const userVote = userVotes[citation.id] || null;
                         
                         citationElement.innerHTML = `
-                            <div class="citation-content">
-                                <div class="citation-title">${citation.citationTitle}</div>
-                                <strong>Time Range:</strong>
-                                <span class="time-range">${citation.timestampStart} - ${citation.timestampEnd}</span>
-                                <strong>Added by:</strong>
-                                <span>${citation.username}</span>
-                                <strong>Date:</strong>
-                                <span>${new Intl.DateTimeFormat('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: true
-                                }).format(new Date(citation.dateAdded))}</span>
-                                <div class="description-area">${citation.description}</div>
-                            </div>
+                            <p><strong>Title:</strong> ${citation.citationTitle}</p>
+                            <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+                            <p><strong>Added by:</strong> ${citation.username}</p>
+                            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            }).format(new Date(citation.dateAdded))}</p>
+                            <p>${citation.description}</p>
                             <div class="vote-controls" data-citation-id="${citation.id}">
                                 <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
                                         title="${userVote === 'like' ? 'Remove like' : 'Like'}">
@@ -573,78 +568,98 @@ async function handleVote(citationId, voteType) {
 function updateCitationsList(citations, container) {
     if (!container) return;
     
-    const fragment = document.createDocumentFragment();
+    // Create a map of existing citation elements
+    const existingElements = new Map();
+    Array.from(container.children).forEach(child => {
+        if (child.classList.contains('citation-item')) {
+            const citationId = child.querySelector('.vote-controls')?.dataset.citationId;
+            if (citationId) existingElements.set(citationId, child);
+        }
+    });
     
     if (citations.length === 0) {
-        const noCitations = document.createElement('p');
-        noCitations.textContent = 'No citations found for this video.';
-        fragment.appendChild(noCitations);
-    } else {
-        citations.forEach(citation => {
-            const citationElement = document.createElement("div");
-            citationElement.className = "citation-item";
-            citationElement.dataset.start = parseTimestamp(citation.timestampStart);
-            citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
-            
-            // Check if citation should be highlighted
-            const isHighlighted = currentTime >= parseTimestamp(citation.timestampStart) && 
-                                currentTime <= parseTimestamp(citation.timestampEnd);
-            
-            citationElement.style.cssText = `
-                border: 1px solid ${isHighlighted ? '#4CAF50' : '#ddd'};
-                padding: 10px;
-                margin-bottom: 10px;
-                border-radius: 5px;
-                background-color: ${isHighlighted ? '#E8F5E9' : 'white'};
-                transition: all 0.3s ease;
-                box-shadow: ${isHighlighted ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};
-            `;
-            
-            if (isHighlighted) {
-                citationElement.classList.add('active-citation');
-            }
-
-            const userVote = userVotes[citation.id] || null;
-            
-            citationElement.innerHTML = `
-                <p><strong>Source:</strong> ${citation.source}</p>
-                <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
-                <p><strong>Added by:</strong> ${citation.username}</p>
-                <p><strong>Date Added:</strong> ${new Intl.DateTimeFormat('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                }).format(new Date(citation.dateAdded))}</p>
-                <p>${citation.description}</p>
-                <div class="vote-controls" data-citation-id="${citation.id}">
-                    <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
-                            title="${userVote === 'like' ? 'Remove like' : 'Like'}">
-                        <span class="vote-icon">👍</span>
-                        <span class="vote-count">${citation.likes || 0}</span>
-                    </button>
-                    <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
-                            title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
-                        <span class="vote-icon">👎</span>
-                        <span class="vote-count">${citation.dislikes || 0}</span>
-                    </button>
-                </div>
-            `;
-
-            // Add vote event listeners
-            const voteControls = citationElement.querySelector('.vote-controls');
-            const likeBtn = voteControls.querySelector('.like-btn');
-            const dislikeBtn = voteControls.querySelector('.dislike-btn');
-
-            likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
-            dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
-            
-            fragment.appendChild(citationElement);
-        });
+        container.innerHTML = '<p>No citations found for this video.</p>';
+        return;
     }
 
+    const fragment = document.createDocumentFragment();
+    citations.forEach(citation => {
+        let citationElement;
+        
+        // Reuse existing element if available
+        if (existingElements.has(citation.id)) {
+            citationElement = existingElements.get(citation.id);
+            existingElements.delete(citation.id);
+        } else {
+            citationElement = document.createElement("div");
+            citationElement.className = "citation-item";
+        }
+
+        citationElement.dataset.start = parseTimestamp(citation.timestampStart);
+        citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
+        
+        // Check if citation should be highlighted
+        const isHighlighted = currentTime >= parseTimestamp(citation.timestampStart) && 
+                            currentTime <= parseTimestamp(citation.timestampEnd);
+        
+        // Update styling
+        citationElement.style.cssText = `
+            border: 1px solid ${isHighlighted ? '#4CAF50' : '#ddd'};
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background-color: ${isHighlighted ? '#E8F5E9' : 'white'};
+            transition: all 0.3s ease;
+            box-shadow: ${isHighlighted ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};
+        `;
+        
+        citationElement.classList.toggle('active-citation', isHighlighted);
+
+        const userVote = userVotes[citation.id] || null;
+        
+        // Update content
+        citationElement.innerHTML = `
+            <p><strong>Title:</strong> ${citation.citationTitle}</p>
+            <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+            <p><strong>Added by:</strong> ${citation.username}</p>
+            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).format(new Date(citation.dateAdded))}</p>
+            <p>${citation.description}</p>
+            <div class="vote-controls" data-citation-id="${citation.id}">
+                <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
+                        title="${userVote === 'like' ? 'Remove like' : 'Like'}">
+                    <span class="vote-icon">👍</span>
+                    <span class="vote-count">${citation.likes || 0}</span>
+                </button>
+                <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
+                        title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
+                    <span class="vote-icon">👎</span>
+                    <span class="vote-count">${citation.dislikes || 0}</span>
+                </button>
+            </div>
+        `;
+
+        // Re-add event listeners
+        const voteControls = citationElement.querySelector('.vote-controls');
+        const likeBtn = voteControls.querySelector('.like-btn');
+        const dislikeBtn = voteControls.querySelector('.dislike-btn');
+
+        likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
+        dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
+        
+        fragment.appendChild(citationElement);
+    });
+
+    // Remove any remaining old elements
+    existingElements.forEach(element => element.remove());
+
+    // Clear and update container
     container.innerHTML = '';
     container.appendChild(fragment);
     updateHighlighting();
@@ -697,7 +712,10 @@ function updateRequestsList(requests, container) {
                     minute: '2-digit',
                     hour12: true
                 }).format(new Date(request.timestamp))}</p>
-                <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
+                <button class="respond-btn" 
+                        data-start="${request.timestampStart}"
+                        data-end="${request.timestampEnd}"
+                        data-reason="${request.reason.replace(/"/g, '&quot;')}">
                     Respond with Citation
                 </button>
             `;
@@ -948,3 +966,13 @@ async function migrateCitationsToNewFormat() {
         console.error('Error during migration:', error);
     }
 }
+
+// Add event listener for respond button
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('respond-btn')) {
+        const start = e.target.dataset.start;
+        const end = e.target.dataset.end;
+        const reason = e.target.dataset.reason;
+        window.respondWithCitation(start, end, reason);
+    }
+});
