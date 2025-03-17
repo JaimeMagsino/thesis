@@ -104,12 +104,31 @@ async function setupFormListeners() {
             e.preventDefault();
             const videoId = new URLSearchParams(window.location.search).get('v');
             
+            // Validate timestamp format
+            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+            const startTime = form.timestampStart.value;
+            const endTime = form.timestampEnd.value;
+
+            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
+                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
+                return;
+            }
+
+            // Compare timestamps
+            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+
+            if (startSeconds >= endSeconds) {
+                alert('Start timestamp must be less than end timestamp');
+                return;
+            }
+            
             try {
                 const citationData = {
                     videoId,
                     citationTitle: form.citationTitle.value,
-                    timestampStart: form.timestampStart.value,
-                    timestampEnd: form.timestampEnd.value,
+                    timestampStart: startTime,
+                    timestampEnd: endTime,
                     description: form.description.value,
                     username: 'Anonymous', // Replace with actual user authentication
                     dateAdded: new Date().toISOString()
