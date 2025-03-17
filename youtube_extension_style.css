@@ -361,7 +361,7 @@ textarea {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     margin: 8px 0;
     padding: 8px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: box-shadow 0.2s ease;
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 4px 8px;
@@ -370,7 +370,6 @@ textarea {
 .citation-item:hover,
 .citation-request:hover {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-    transform: translateY(-1px);
 }
 
 /* Main content area */

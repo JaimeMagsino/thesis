@@ -426,12 +426,15 @@ async function loadCitations() {
                             background-color: white;
                             transition: background-color 0.3s;
                         `;
-
+                        
                         const userVote = userVotes[citation.id] || null;
                         
                         citationElement.innerHTML = `
                             <p><strong>Title:</strong> ${citation.citationTitle}</p>
-                            <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+                            <p><strong>Time Range:</strong> 
+                                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
+                                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
+                            </p>
                             <p><strong>Added by:</strong> ${citation.username}</p>
                             <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
                                 year: 'numeric',
@@ -464,6 +467,18 @@ async function loadCitations() {
                         likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
                         dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
                         
+                        // Add click handlers for timestamp links
+                        citationElement.querySelectorAll('.timestamp-link').forEach(link => {
+                            link.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                const time = parseInt(e.target.dataset.time);
+                                if (player && !isNaN(time)) {
+                                    player.currentTime = time;
+                                    player.play();
+                                }
+                            });
+                        });
+
                         fragment.appendChild(citationElement);
                     });
                 }
@@ -620,7 +635,10 @@ function updateCitationsList(citations, container) {
         // Update content
         citationElement.innerHTML = `
             <p><strong>Title:</strong> ${citation.citationTitle}</p>
-            <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
+            <p><strong>Time Range:</strong> 
+                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
+                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
+            </p>
             <p><strong>Added by:</strong> ${citation.username}</p>
             <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
                 year: 'numeric',
@@ -653,6 +671,18 @@ function updateCitationsList(citations, container) {
         likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
         dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
         
+        // Add click handlers for timestamp links
+        citationElement.querySelectorAll('.timestamp-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const time = parseInt(e.target.dataset.time);
+                if (player && !isNaN(time)) {
+                    player.currentTime = time;
+                    player.play();
+                }
+            });
+        });
+
         fragment.appendChild(citationElement);
     });
 
