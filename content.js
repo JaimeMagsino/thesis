@@ -924,6 +924,9 @@ function forceUpdateTitle() {
     if (titleElement) {
         titleElement.style.display = 'none';
         setTimeout(() => titleElement.style.display = 'block', 0);
+    }
+}
+
 async function migrateCitationsToNewFormat() {
     const videoId = new URLSearchParams(window.location.search).get('v');
     if (!videoId) return;
