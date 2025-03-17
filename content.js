@@ -160,14 +160,33 @@ async function setupFormListeners() {
             e.preventDefault();
             const videoId = new URLSearchParams(window.location.search).get('v');
             
+            // Validate timestamp format
+            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+            const startTime = requestForm.timestampStart.value;
+            const endTime = requestForm.timestampEnd.value;
+
+            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
+                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
+                return;
+            }
+
+            // Compare timestamps
+            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+
+            if (startSeconds >= endSeconds) {
+                alert('Start timestamp must be less than end timestamp');
+                return;
+            }
+            
             try {
                 // Get current timestamp in ISO format
                 const currentTime = new Date().toISOString();
                 
                 const requestData = {
                     videoId,
-                    timestampStart: requestForm.timestampStart.value,
-                    timestampEnd: requestForm.timestampEnd.value,
+                    timestampStart: startTime,
+                    timestampEnd: endTime,
                     reason: requestForm.reason.value,
                     username: 'Anonymous',
                     timestamp: currentTime // Use consistent timestamp field name
