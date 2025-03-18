@@ -205,6 +205,7 @@ textarea {
 .requests-container,
 .citations-container {
     display: none;
+    transition: none;
 }
 
 /* Container visibility */
@@ -221,7 +222,10 @@ textarea {
     margin-bottom: 10px;
     border-radius: 5px;
     background-color: white;
-    transition: all 0.3s ease;
+    transition-property: transform, border-color, background-color, box-shadow;
+    transition-duration: 0.3s;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, border-color, background-color, box-shadow;
     box-shadow: none;
 }
 
@@ -235,9 +239,10 @@ textarea {
 .citation-request {
     position: relative;
     overflow: hidden;
-    transition-property: border-color, background-color, box-shadow;
+    transition-property: transform, border-color, background-color, box-shadow;
     transition-duration: 0.3s;
-    transition-timing-function: ease;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, border-color, background-color, box-shadow;
 }
 
 .citation-item::before,
@@ -254,6 +259,24 @@ textarea {
 
 .active-citation::before {
     background-color: #2196f3;
+}
+
+/* Citation request styles */
+.citation-request {
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    transform-origin: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+}
+
+.citation-request.active-citation {
+    border-color: #2196F3;
+    background-color: #E3F2FD;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 /* Vote controls */
@@ -427,7 +450,10 @@ textarea {
     margin: 10px 0;
     border-radius: 5px;
     background-color: #f8f9fa;
-    transition: all 0.3s ease;
+    transition-property: transform, border-color, background-color, box-shadow;
+    transition-duration: 0.3s;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, border-color, background-color, box-shadow;
     box-shadow: none;
 }
 

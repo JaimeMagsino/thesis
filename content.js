@@ -409,80 +409,16 @@ async function loadCitationRequests() {
         const requests = response.requests;
         const userVotes = votesResponse;
         
-        // Only update if data has changed to prevent unnecessary reloads
-        if (JSON.stringify(requests) !== JSON.stringify(currentRequests)) {
-            currentRequests = sortItems(requests, currentSortOption, 'request');
-            requestAnimationFrame(() => {
-                const fragment = document.createDocumentFragment();
-                
-                if (requests.length === 0) {
-                    const noCitations = document.createElement('p');
-                    noCitations.textContent = 'No citation requests yet.';
-                    fragment.appendChild(noCitations);
-                } else {
-                    requests.forEach(request => {
-                        const requestElement = document.createElement("div");
-                        requestElement.className = "citation-request";
-                        requestElement.dataset.start = parseTimestamp(request.timestampStart);
-                        requestElement.dataset.end = parseTimestamp(request.timestampEnd);
+        // Attach user votes to requests for consistent rendering
+        const requestsWithVotes = requests.map(request => ({
+            ...request,
+            userVote: userVotes[request.id] || null
+        }));
 
-                        const userVote = userVotes[request.id] || null;
-                        
-                        requestElement.innerHTML = `
-                            <div class="request-content">
-                                <strong>Time Range:</strong>
-                                <span class="time-range">${request.timestampStart} - ${request.timestampEnd}</span>
-                                <strong>Requested by:</strong>
-                                <span>${request.username}</span>
-                                <strong>Date:</strong>
-                                <span>${new Intl.DateTimeFormat('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: true
-                                }).format(new Date(request.timestamp))}</span>
-                                <div class="description-area">${request.reason}</div>
-                                <div class="request-vote-controls" data-request-id="${request.id}">
-                                    <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
-                                            title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                                        <span class="vote-icon">▲</span>
-                                    </button>
-                                    <span class="vote-score">${request.voteScore || 0}</span>
-                                    <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
-                                            title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                                        <span class="vote-icon">▼</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <button class="respond-btn" 
-                                    data-start="${request.timestampStart}" 
-                                    data-end="${request.timestampEnd}" 
-                                    data-reason="${request.reason.replace(/"/g, '&quot;')}">
-                                Respond with Citation
-                            </button>
-                        `;
-
-                        // Add vote event listeners
-                        const voteControls = requestElement.querySelector('.request-vote-controls');
-                        const upvoteBtn = voteControls.querySelector('.upvote-btn');
-                        const downvoteBtn = voteControls.querySelector('.downvote-btn');
-
-                        upvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'up'));
-                        downvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'down'));
-                        
-                        fragment.appendChild(requestElement);
-                    });
-                }
-
-                // Only replace the contents if the container is visible
-                if (container.style.display === 'block') {
-                    container.innerHTML = '';
-                    container.appendChild(fragment);
-                    updateHighlighting();
-                }
-            });
+        // Only update if data has changed
+        if (JSON.stringify(requestsWithVotes) !== JSON.stringify(currentRequests)) {
+            currentRequests = sortItems(requestsWithVotes, currentSortOption, 'request');
+            updateRequestsList(currentRequests, container);
         }
     } catch (error) {
         console.error("Error loading citation requests:", error);
@@ -806,33 +742,73 @@ function updateRequestsList(requests, container) {
             requestElement.dataset.start = parseTimestamp(request.timestampStart);
             requestElement.dataset.end = parseTimestamp(request.timestampEnd);
             
+            // Check if request should be highlighted
+            const start = Number(requestElement.dataset.start);
+            const end = Number(requestElement.dataset.end);
+            const isHighlighted = currentTime >= start && currentTime <= end;
+            if (isHighlighted) {
+                requestElement.classList.add('active-citation');
+            }
+
             requestElement.innerHTML = `
-                <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
-                <p><strong>Reason:</strong> ${request.reason}</p>
-                <p><strong>Requested by:</strong> ${request.username}</p>
-                <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                }).format(new Date(request.timestamp))}</p>
+                <div class="request-content">
+                    <strong>Time Range:</strong>
+                    <span class="time-range">${request.timestampStart} - ${request.timestampEnd}</span>
+                    <strong>Requested by:</strong>
+                    <span>${request.username}</span>
+                    <strong>Date:</strong>
+                    <span>${new Intl.DateTimeFormat('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }).format(new Date(request.timestamp))}</span>
+                    <div class="description-area">${request.reason}</div>
+                    <div class="request-vote-controls" data-request-id="${request.id}">
+                        <button class="vote-btn upvote-btn ${request.userVote === 'up' ? 'active' : ''}" 
+                                title="${request.userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                            <span class="vote-icon">▲</span>
+                        </button>
+                        <span class="vote-score">${request.voteScore || 0}</span>
+                        <button class="vote-btn downvote-btn ${request.userVote === 'down' ? 'active' : ''}" 
+                                title="${request.userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                            <span class="vote-icon">▼</span>
+                        </button>
+                    </div>
+                </div>
                 <button class="respond-btn" 
-                        data-start="${request.timestampStart}"
-                        data-end="${request.timestampEnd}"
+                        data-start="${request.timestampStart}" 
+                        data-end="${request.timestampEnd}" 
                         data-reason="${request.reason.replace(/"/g, '&quot;')}">
                     Respond with Citation
                 </button>
             `;
-            
+
+            // Add vote event listeners
+            const voteControls = requestElement.querySelector('.request-vote-controls');
+            const upvoteBtn = voteControls.querySelector('.upvote-btn');
+            const downvoteBtn = voteControls.querySelector('.downvote-btn');
+
+            upvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'up'));
+            downvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'down'));
+
             fragment.appendChild(requestElement);
         });
     }
 
-    container.innerHTML = '';
-    container.appendChild(fragment);
-    updateHighlighting();
+    // Only update if container is visible and content has changed
+    if (container.style.display === 'block') {
+        const currentContent = container.innerHTML;
+        const newContent = document.createElement('div');
+        newContent.appendChild(fragment.cloneNode(true));
+        
+        if (currentContent !== newContent.innerHTML) {
+            container.innerHTML = '';
+            container.appendChild(fragment);
+        }
+    }
 }
 
 // Update highlighting function to trigger resort when highlighting changes
@@ -840,24 +816,47 @@ function updateHighlighting() {
     const citationsContainer = document.getElementById("citations-container");
     const requestsContainer = document.getElementById("citation-requests-container");
     
+    let needsResorting = false;
+
     // Update citations highlighting
     if (citationsContainer && citationsContainer.style.display === 'block') {
         citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
             const start = Number(citation.dataset.start);
             const end = Number(citation.dataset.end);
+            const wasHighlighted = citation.classList.contains('active-citation');
             const isHighlighted = currentTime >= start && currentTime <= end;
-            citation.classList.toggle('active-citation', isHighlighted);
+            
+            if (isHighlighted !== wasHighlighted) {
+                citation.classList.toggle('active-citation', isHighlighted);
+                needsResorting = true;
+            }
         });
+
+        if (needsResorting) {
+            const sortedCitations = sortItems(currentCitations, currentSortOption, 'citation');
+            updateCitationsList(sortedCitations, citationsContainer);
+        }
     }
     
     // Update citation requests highlighting
+    needsResorting = false;
     if (requestsContainer && requestsContainer.style.display === 'block') {
         requestsContainer.querySelectorAll('.citation-request').forEach(request => {
             const start = Number(request.dataset.start);
             const end = Number(request.dataset.end);
+            const wasHighlighted = request.classList.contains('active-citation');
             const isHighlighted = currentTime >= start && currentTime <= end;
-            request.classList.toggle('active-citation', isHighlighted);
+            
+            if (isHighlighted !== wasHighlighted) {
+                request.classList.toggle('active-citation', isHighlighted);
+                needsResorting = true;
+            }
         });
+
+        if (needsResorting) {
+            const sortedRequests = sortItems(currentRequests, currentSortOption, 'request');
+            updateRequestsList(sortedRequests, requestsContainer);
+        }
     }
 }
 
@@ -973,7 +972,19 @@ let currentSortOption = 'upvotes'; // Default to upvotes for citations
 function sortItems(items, sortBy, itemType = 'citation') {
     if (!items || !Array.isArray(items)) return [];
     
-    return [...items].sort((a, b) => {
+    // Helper function to check if an item is currently highlighted
+    const isHighlighted = (item) => {
+        const start = parseTimestamp(item.timestampStart);
+        const end = parseTimestamp(item.timestampEnd);
+        return currentTime >= start && currentTime <= end;
+    };
+    
+    // Split items into highlighted and non-highlighted
+    const highlighted = items.filter(isHighlighted);
+    const normal = items.filter(item => !isHighlighted(item));
+    
+    // Sort function for both groups
+    const sortFunction = (a, b) => {
         switch (sortBy) {
             case 'upvotes':
                 return (b.voteScore || 0) - (a.voteScore || 0);
@@ -982,7 +993,14 @@ function sortItems(items, sortBy, itemType = 'citation') {
             default:
                 return 0;
         }
-    });
+    };
+
+    // Sort each group separately
+    const sortedHighlighted = highlighted.sort(sortFunction);
+    const sortedNormal = normal.sort(sortFunction);
+
+    // Return highlighted items first, followed by normal items
+    return [...sortedHighlighted, ...sortedNormal];
 }
 
 function forceUpdateTitle() {
