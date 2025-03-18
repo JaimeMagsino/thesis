@@ -303,6 +303,44 @@ textarea {
     filter: hue-rotate(200deg);
 }
 
+/* Vote button styles */
+.vote-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.vote-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    color: #606060;
+    transition: color 0.2s ease;
+}
+
+.vote-btn:hover {
+    color: #065fd4;
+}
+
+.vote-btn.upvote:hover {
+    color: #2ba640;
+}
+
+.vote-btn.downvote:hover {
+    color: #cc0000;
+}
+
+.vote-score {
+    font-size: 14px;
+    font-weight: bold;
+    color: #606060;
+    min-width: 20px;
+    text-align: center;
+}
+
 /* Citation Controls Container */
 #citation-controls {
     background-color: #ffffff;

@@ -218,6 +218,92 @@ async function setupFormListeners() {
     }
 }
 
+// Handle voting on requests
+async function handleRequestVote(requestId, voteType) {
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    const voteControls = document.querySelector(`.request-vote-controls[data-request-id="${requestId}"]`);
+    const voteScoreElement = voteControls.querySelector('.vote-score');
+    const upvoteBtn = voteControls.querySelector('.upvote-btn');
+    const downvoteBtn = voteControls.querySelector('.downvote-btn');
+
+    // Get current vote score
+    let voteScore = parseInt(voteScoreElement.textContent);
+
+    // Get previous vote
+    const storageKey = `request_votes_${videoId}`;
+    const userVotes = await new Promise(resolve => {
+        chrome.storage.local.get(storageKey, (result) => {
+            resolve(result[storageKey] || {});
+        });
+    });
+    const previousVote = userVotes[requestId];
+
+    // Update score and UI based on the vote
+    if (voteType === 'up') {
+        if (previousVote === 'up') {
+            // Remove upvote
+            voteScore--;
+            upvoteBtn.classList.remove('active');
+            upvoteBtn.title = 'Upvote';
+            userVotes[requestId] = null;
+        } else {
+            // Upvote
+            voteScore++;
+            if (previousVote === 'down') {
+                // Remove previous downvote
+                voteScore++;
+            }
+            upvoteBtn.classList.add('active');
+            downvoteBtn.classList.remove('active');
+            upvoteBtn.title = 'Remove upvote';
+            downvoteBtn.title = 'Downvote';
+            userVotes[requestId] = 'up';
+        }
+    } else {
+        if (previousVote === 'down') {
+            // Remove downvote
+            voteScore++;
+            downvoteBtn.classList.remove('active');
+            downvoteBtn.title = 'Downvote';
+            userVotes[requestId] = null;
+        } else {
+            // Downvote
+            voteScore--;
+            if (previousVote === 'up') {
+                // Remove previous upvote
+                voteScore--;
+            }
+            downvoteBtn.classList.add('active');
+            upvoteBtn.classList.remove('active');
+            downvoteBtn.title = 'Downvote';
+            upvoteBtn.title = 'Upvote';
+            userVotes[requestId] = 'down';
+        }
+    }
+
+    // Update the displayed score
+    voteScoreElement.textContent = voteScore;
+
+    try {
+        // Send update to background script
+        const response = await chrome.runtime.sendMessage({
+            type: 'updateRequestVotes',
+            videoId,
+            requestId,
+            voteValue: voteScore,
+            userVote: userVotes[requestId]
+        });
+
+        if (!response.success) {
+            throw new Error(response.error);
+        }
+    } catch (error) {
+        console.error('Error updating votes:', error);
+        // Revert UI changes on error
+        loadCitationRequests();
+    }
+}
+
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
     
@@ -294,16 +380,24 @@ async function loadCitationRequests() {
     const videoId = new URLSearchParams(window.location.search).get('v');
     
     try {
-        const response = await chrome.runtime.sendMessage({
-            type: 'getRequests',
-            videoId
-        });
+        const [response, votesResponse] = await Promise.all([
+            chrome.runtime.sendMessage({
+                type: 'getRequests',
+                videoId
+            }),
+            new Promise(resolve => {
+                chrome.storage.local.get(`request_votes_${videoId}`, (result) => {
+                    resolve(result[`request_votes_${videoId}`] || {});
+                });
+            })
+        ]);
 
         if (!response.success) {
             throw new Error(response.error);
         }
 
         const requests = response.requests;
+        const userVotes = votesResponse;
         
         // Only update DOM if container is visible and data has changed
         if (container.style.display !== 'none' && JSON.stringify(requests) !== JSON.stringify(currentRequests)) {
@@ -318,11 +412,11 @@ async function loadCitationRequests() {
                     fragment.appendChild(noCitations);
                 } else {
                     requests.forEach(request => {
-                        const citationElement = document.createElement("div");
-                        citationElement.className = "citation-request";
-                        citationElement.dataset.start = parseTimestamp(request.timestampStart);
-                        citationElement.dataset.end = parseTimestamp(request.timestampEnd);
-                        citationElement.style.cssText = `
+                        const requestElement = document.createElement("div");
+                        requestElement.className = "citation-request";
+                        requestElement.dataset.start = parseTimestamp(request.timestampStart);
+                        requestElement.dataset.end = parseTimestamp(request.timestampEnd);
+                        requestElement.style.cssText = `
                             border: 1px solid #ddd;
                             padding: 10px;
                             margin: 10px 0;
@@ -330,8 +424,10 @@ async function loadCitationRequests() {
                             background-color: #f8f9fa;
                             transition: background-color 0.3s;
                         `;
+
+                        const userVote = userVotes[request.id] || null;
                         
-                        citationElement.innerHTML = `
+                        requestElement.innerHTML = `
                             <div class="request-content">
                                 <strong>Time Range:</strong>
                                 <span class="time-range">${request.timestampStart} - ${request.timestampEnd}</span>
@@ -347,13 +443,32 @@ async function loadCitationRequests() {
                                     hour12: true
                                 }).format(new Date(request.timestamp))}</span>
                                 <div class="description-area">${request.reason}</div>
+                                <div class="request-vote-controls" data-request-id="${request.id}">
+                                    <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
+                                            title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                                        <span class="vote-icon">▲</span>
+                                    </button>
+                                    <span class="vote-score">${request.voteScore || 0}</span>
+                                    <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
+                                            title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                                        <span class="vote-icon">▼</span>
+                                    </button>
+                                </div>
                             </div>
                             <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
                                 Respond
                             </button>
                         `;
+
+                        // Add vote event listeners
+                        const voteControls = requestElement.querySelector('.request-vote-controls');
+                        const upvoteBtn = voteControls.querySelector('.upvote-btn');
+                        const downvoteBtn = voteControls.querySelector('.downvote-btn');
+
+                        upvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'up'));
+                        downvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'down'));
                         
-                        fragment.appendChild(citationElement);
+                        fragment.appendChild(requestElement);
                     });
                 }
 
@@ -446,26 +561,25 @@ async function loadCitations() {
                             }).format(new Date(citation.dateAdded))}</p>
                             <p>${citation.description}</p>
                             <div class="vote-controls" data-citation-id="${citation.id}">
-                                <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
-                                        title="${userVote === 'like' ? 'Remove like' : 'Like'}">
-                                    <span class="vote-icon">👍</span>
-                                    <span class="vote-count">${citation.likes || 0}</span>
+                                <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
+                                        title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                                    <span class="vote-icon">▲</span>
                                 </button>
-                                <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
-                                        title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
-                                    <span class="vote-icon">👎</span>
-                                    <span class="vote-count">${citation.dislikes || 0}</span>
+                                <span class="vote-score">${citation.voteScore || 0}</span>
+                                <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
+                                        title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                                    <span class="vote-icon">▼</span>
                                 </button>
                             </div>
                         `;
 
                         // Add vote event listeners
                         const voteControls = citationElement.querySelector('.vote-controls');
-                        const likeBtn = voteControls.querySelector('.like-btn');
-                        const dislikeBtn = voteControls.querySelector('.dislike-btn');
+                        const upvoteBtn = voteControls.querySelector('.upvote-btn');
+                        const downvoteBtn = voteControls.querySelector('.downvote-btn');
 
-                        likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
-                        dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
+                        upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
+                        downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
                         
                         // Add click handlers for timestamp links
                         citationElement.querySelectorAll('.timestamp-link').forEach(link => {
@@ -500,64 +614,61 @@ async function loadCitations() {
 async function handleVote(citationId, voteType) {
     const videoId = new URLSearchParams(window.location.search).get('v');
     const voteControls = document.querySelector(`.vote-controls[data-citation-id="${citationId}"]`);
-    const likeBtn = voteControls.querySelector('.like-btn');
-    const dislikeBtn = voteControls.querySelector('.dislike-btn');
-    const likeCount = likeBtn.querySelector('.vote-count');
-    const dislikeCount = dislikeBtn.querySelector('.vote-count');
+    const voteScoreElement = voteControls.querySelector('.vote-score');
+    const upvoteBtn = voteControls.querySelector('.upvote-btn');
+    const downvoteBtn = voteControls.querySelector('.downvote-btn');
 
-    // Get current vote counts
-    let likes = parseInt(likeCount.textContent);
-    let dislikes = parseInt(dislikeCount.textContent);
+    // Get current vote score
+    let voteScore = parseInt(voteScoreElement.textContent);
 
     // Get previous vote
     const previousVote = userVotes[citationId];
 
-    // Update counts and UI based on the vote
-    if (voteType === 'like') {
-        if (previousVote === 'like') {
-            // Unlike
-            likes--;
-            likeBtn.classList.remove('active');
-            likeBtn.title = 'Like';
+    // Update score and UI based on the vote
+    if (voteType === 'up') {
+        if (previousVote === 'up') {
+            // Remove upvote
+            voteScore--;
+            upvoteBtn.classList.remove('active');
+            upvoteBtn.title = 'Upvote';
             userVotes[citationId] = null;
         } else {
-            // Like
-            likes++;
-            likeBtn.classList.add('active');
-            likeBtn.title = 'Remove like';
-            if (previousVote === 'dislike') {
-                // Remove previous dislike
-                dislikes--;
-                dislikeBtn.classList.remove('active');
-                dislikeBtn.title = 'Dislike';
+            // Upvote
+            voteScore++;
+            if (previousVote === 'down') {
+                // Remove previous downvote
+                voteScore++;
             }
-            userVotes[citationId] = 'like';
+            upvoteBtn.classList.add('active');
+            downvoteBtn.classList.remove('active');
+            upvoteBtn.title = 'Remove upvote';
+            downvoteBtn.title = 'Downvote';
+            userVotes[citationId] = 'up';
         }
     } else {
-        if (previousVote === 'dislike') {
-            // Remove dislike
-            dislikes--;
-            dislikeBtn.classList.remove('active');
-            dislikeBtn.title = 'Dislike';
+        if (previousVote === 'down') {
+            // Remove downvote
+            voteScore++;
+            downvoteBtn.classList.remove('active');
+            downvoteBtn.title = 'Downvote';
             userVotes[citationId] = null;
         } else {
-            // Dislike
-            dislikes++;
-            dislikeBtn.classList.add('active');
-            dislikeBtn.title = 'Remove dislike';
-            if (previousVote === 'like') {
-                // Remove previous like
-                likes--;
-                likeBtn.classList.remove('active');
-                likeBtn.title = 'Like';
+            // Downvote
+            voteScore--;
+            if (previousVote === 'up') {
+                // Remove previous upvote
+                voteScore--;
             }
-            userVotes[citationId] = 'dislike';
+            downvoteBtn.classList.add('active');
+            upvoteBtn.classList.remove('active');
+            downvoteBtn.title = 'Downvote';
+            upvoteBtn.title = 'Upvote';
+            userVotes[citationId] = 'down';
         }
     }
 
-    // Update the displayed counts
-    likeCount.textContent = likes;
-    dislikeCount.textContent = dislikes;
+    // Update the displayed score
+    voteScoreElement.textContent = voteScore;
 
     try {
         // Send update to background script
@@ -565,7 +676,7 @@ async function handleVote(citationId, voteType) {
             type: 'updateCitationVotes',
             videoId,
             citationId,
-            votes: { likes, dislikes },
+            voteValue: voteScore,
             userVote: userVotes[citationId]
         });
 
@@ -650,26 +761,25 @@ function updateCitationsList(citations, container) {
             }).format(new Date(citation.dateAdded))}</p>
             <p>${citation.description}</p>
             <div class="vote-controls" data-citation-id="${citation.id}">
-                <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
-                        title="${userVote === 'like' ? 'Remove like' : 'Like'}">
-                    <span class="vote-icon">👍</span>
-                    <span class="vote-count">${citation.likes || 0}</span>
+                <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
+                        title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                    <span class="vote-icon">▲</span>
                 </button>
-                <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
-                        title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
-                    <span class="vote-icon">👎</span>
-                    <span class="vote-count">${citation.dislikes || 0}</span>
+                <span class="vote-score">${citation.voteScore || 0}</span>
+                <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
+                        title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                    <span class="vote-icon">▼</span>
                 </button>
             </div>
         `;
 
         // Re-add event listeners
         const voteControls = citationElement.querySelector('.vote-controls');
-        const likeBtn = voteControls.querySelector('.like-btn');
-        const dislikeBtn = voteControls.querySelector('.dislike-btn');
+        const upvoteBtn = voteControls.querySelector('.upvote-btn');
+        const downvoteBtn = voteControls.querySelector('.downvote-btn');
 
-        likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
-        dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
+        upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
+        downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
         
         // Add click handlers for timestamp links
         citationElement.querySelectorAll('.timestamp-link').forEach(link => {
