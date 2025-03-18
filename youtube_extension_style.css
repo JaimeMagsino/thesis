@@ -167,6 +167,30 @@ textarea {
     margin-top: 0;
 }
 
+/* Extension element styles */
+.custom-extension-element {
+    background-color: #f0f0f0;
+    padding: 10px;
+    margin-top: 5px;
+}
+
+/* Citation controls */
+.citation-controls {
+    background-color: #f8f9fa;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 5px;
+    flex-direction: column;
+}
+
+.button-container {
+    display: flex;
+    gap: 10px;
+}
+
 /* Styling for the form and list view containers */
 #citation-form-container,
 #list-view-container {
@@ -177,57 +201,43 @@ textarea {
     background-color: #fff;
 }
 
-/* Hide containers by default */
-#citation-form-container,
-#list-view-container {
+/* Container styles */
+.requests-container,
+.citations-container {
     display: none;
 }
 
+/* Container visibility */
 #citation-form-container.active,
 #list-view-container.active {
     border: 2px solid #0073e6;
     box-shadow: 0 0 10px rgba(0, 115, 230, 0.2);
 }
 
-/* Respond button styles */
-.respond-btn {
-    background-color: #065fd4;
-    color: white;
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 8px;
-    font-weight: bold;
-    width: 100%;
-    transition: background-color 0.2s ease;
+/* Citation item styles */
+.citation-item {
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    background-color: white;
+    transition: all 0.3s ease;
+    box-shadow: none;
 }
 
-.respond-btn:hover {
-    background-color: #0056bf;
-}
-
-.respond-btn:active {
-    background-color: #004ba5;
-}
-
-/* Active tab styles */
-.tab-btn.active {
-    background-color: #065fd4;
-    color: white;
-}
-
-/* Active citation highlighting */
-.active-citation {
-    background-color: #e3f2fd !important;
-    border-color: #2196f3 !important;
-    box-shadow: 0 0 8px rgba(33, 150, 243, 0.3) !important;
+.citation-item.active-citation {
+    border-color: #4CAF50;
+    background-color: #E8F5E9;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .citation-item,
 .citation-request {
     position: relative;
     overflow: hidden;
+    transition-property: border-color, background-color, box-shadow;
+    transition-duration: 0.3s;
+    transition-timing-function: ease;
 }
 
 .citation-item::before,
@@ -410,6 +420,23 @@ textarea {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
+/* Citation request styles */
+.citation-request {
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+    box-shadow: none;
+}
+
+.citation-request.active-citation {
+    border-color: #2196F3;
+    background-color: #E3F2FD;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 /* Main content area */
 .citation-content,
 .request-content {
@@ -573,4 +600,38 @@ textarea {
 #citation-requests-container::-webkit-scrollbar-thumb:hover,
 #citations-container::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* Header container styles */
+.header-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    gap: 10px;
+}
+
+.header-container h3 {
+    margin: 0;
+    flex-grow: 1;
+}
+
+.sort-select {
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.sort-select:hover {
+    border-color: #0073e6;
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: #0073e6;
+    box-shadow: 0 0 0 2px rgba(0, 115, 230, 0.2);
 }
