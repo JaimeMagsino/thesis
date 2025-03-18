@@ -463,6 +463,32 @@ textarea {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+/* Timestamp links */
+.timestamp-link {
+    color: #2196F3;
+    text-decoration: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.timestamp-link:hover {
+    background-color: #E3F2FD;
+    text-decoration: underline;
+}
+
+.timestamp-link:active {
+    background-color: #BBDEFB;
+}
+
+/* Time range spacing */
+.time-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 /* Main content area */
 .citation-content,
 .request-content {
@@ -496,17 +522,6 @@ textarea {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-/* Time Range styling */
-.time-range {
-    background-color: #f2f2f2;
-    border-radius: 3px;
-    color: #606060;
-    font-family: 'Roboto Mono', monospace;
-    font-size: 11px;
-    padding: 1px 4px;
-    white-space: nowrap;
 }
 
 /* Description area */

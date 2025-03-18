@@ -753,7 +753,11 @@ function updateRequestsList(requests, container) {
             requestElement.innerHTML = `
                 <div class="request-content">
                     <strong>Time Range:</strong>
-                    <span class="time-range">${request.timestampStart} - ${request.timestampEnd}</span>
+                    <span class="time-range">
+                        <a href="#" class="timestamp-link" data-time="${start}">${request.timestampStart}</a>
+                        -
+                        <a href="#" class="timestamp-link" data-time="${end}">${request.timestampEnd}</a>
+                    </span>
                     <strong>Requested by:</strong>
                     <span>${request.username}</span>
                     <strong>Date:</strong>
@@ -785,6 +789,14 @@ function updateRequestsList(requests, container) {
                     Respond with Citation
                 </button>
             `;
+
+            // Add timestamp click handlers
+            requestElement.querySelectorAll('.timestamp-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    seekToTime(Number(link.dataset.time));
+                });
+            });
 
             // Add vote event listeners
             const voteControls = requestElement.querySelector('.request-vote-controls');
@@ -951,6 +963,13 @@ function parseTimestamp(timestamp) {
         seconds += parseInt(parts[i]) * Math.pow(60, i);
     }
     return seconds;
+}
+
+function seekToTime(seconds) {
+    const video = document.querySelector('video');
+    if (video) {
+        video.currentTime = seconds;
+    }
 }
 
 // Update citation requests and citations periodically with longer interval
