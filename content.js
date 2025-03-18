@@ -375,7 +375,7 @@ function createSortSelect() {
     sortSelect.className = 'sort-select';
     sortSelect.innerHTML = `
         <option value="upvotes">Most Upvoted</option>
-        <option value="timestamp">Sort by Date</option>
+        <option value="recent">Sort by Recent</option>
     `;
     return sortSelect;
 }
@@ -988,7 +988,7 @@ function sortItems(items, sortBy, itemType = 'citation') {
         switch (sortBy) {
             case 'upvotes':
                 return (b.voteScore || 0) - (a.voteScore || 0);
-            case 'timestamp':
+            case 'recent':
                 return new Date(b.timestamp || b.dateAdded) - new Date(a.timestamp || a.dateAdded);
             default:
                 return 0;
