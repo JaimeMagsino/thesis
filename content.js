@@ -3,7 +3,7 @@ window.respondWithCitation = function(start, end, reason) {
     // Switch to Add Citation tab and load the form
     document.getElementById('add-citation-btn').classList.add('active');
     document.getElementById('request-citation-btn').classList.remove('active');
-    loadPage("youtube_extension_citation.html", "citation-container", () => {
+    loadPage("youtube_extension_citation.html", "modal-container", () => {
         // This callback runs after the form is loaded
         const form = document.getElementById('citation-form');
         if (form) {
@@ -31,7 +31,6 @@ function waitForDependencies() {
 }
 
 function init() {
-    insertBelowTitle();
     insertCitationButtons();
     migrateCitationsToNewFormat();
     console.log("Extension initialized");
@@ -39,184 +38,6 @@ function init() {
 
 // Start initialization
 waitForDependencies();
-
-function insertBelowTitle() {
-    const titleElement = document.querySelector("h1.style-scope.ytd-watch-metadata");
-    console.log("Attempting to insert below title");
-
-    if (!titleElement) {
-        console.log("Title element not found");
-        return;
-    }
-    if (document.getElementById("custom-extension-element")) {
-        console.log("Extension element already exists");
-        return;
-    }
-
-    const newElement = document.createElement("div");
-    newElement.id = "custom-extension-element";
-    newElement.style.cssText = "background-color: #f0f0f0; padding: 10px; margin-top: 5px;";
-
-    newElement.innerHTML = `
-        <h3>Citation Controls</h3>
-        <button id="add-citation-btn" class="tab-btn active">Add Citation</button>
-        <button id="request-citation-btn" class="tab-btn">Request for Citation</button>
-        
-        <div id="citation-container"></div>
-    `;
-
-    titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
-    console.log("Extension element inserted");
-
-    // Load "Add Citation" by default
-    loadPage("youtube_extension_citation.html", "citation-container");
-
-    // Add event listeners for tab switching
-    document.getElementById('add-citation-btn').addEventListener('click', () => {
-        document.getElementById('add-citation-btn').classList.add('active');
-        document.getElementById('request-citation-btn').classList.remove('active');
-        loadPage("youtube_extension_citation.html", "citation-container");
-    });
-
-    document.getElementById('request-citation-btn').addEventListener('click', () => {
-        document.getElementById('add-citation-btn').classList.remove('active');
-        document.getElementById('request-citation-btn').classList.add('active');
-        loadPage("youtube_extension_request.html", "citation-container");
-    });
-}
-
-function loadPage(url, containerId, callback = null) {
-    fetch(chrome.runtime.getURL(url))
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById(containerId).innerHTML = html;
-            setupFormListeners();
-            if (callback) callback();
-        })
-        .catch(error => console.error("Error loading form:", error));
-}
-
-async function setupFormListeners() {
-    const form = document.getElementById('citation-form');
-    if (form && !form.dataset.listener) {
-        form.dataset.listener = "true";
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const videoId = new URLSearchParams(window.location.search).get('v');
-            
-            // Validate timestamp format
-            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
-            const startTime = form.timestampStart.value;
-            const endTime = form.timestampEnd.value;
-
-            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
-                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
-                return;
-            }
-
-            // Compare timestamps
-            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-
-            if (startSeconds >= endSeconds) {
-                alert('Start timestamp must be less than end timestamp');
-                return;
-            }
-            
-            try {
-                const citationData = {
-                    videoId,
-                    citationTitle: form.citationTitle.value,
-                    timestampStart: startTime,
-                    timestampEnd: endTime,
-                    description: form.description.value,
-                    username: 'Anonymous', // Replace with actual user authentication
-                    dateAdded: new Date().toISOString()
-                };
-                
-                const response = await chrome.runtime.sendMessage({
-                    type: 'addCitation',
-                    data: citationData
-                });
-
-                if (response.success) {
-                    alert('Citation added successfully!');
-                    form.reset();
-                    loadCitations();
-                } else {
-                    throw new Error(response.error);
-                }
-            } catch (error) {
-                console.error("Error adding citation:", error);
-                alert('Error adding citation. Please try again.');
-            }
-        });
-    }
-
-    const requestForm = document.getElementById('request-form');
-    if (requestForm && !requestForm.dataset.listener) {
-        requestForm.dataset.listener = "true";
-        requestForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const videoId = new URLSearchParams(window.location.search).get('v');
-            
-            // Validate timestamp format
-            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
-            const startTime = requestForm.timestampStart.value;
-            const endTime = requestForm.timestampEnd.value;
-
-            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
-                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
-                return;
-            }
-
-            // Compare timestamps
-            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-
-            if (startSeconds >= endSeconds) {
-                alert('Start timestamp must be less than end timestamp');
-                return;
-            }
-            
-            try {
-                // Get current timestamp in ISO format
-                const currentTime = new Date().toISOString();
-                
-                const requestData = {
-                    videoId,
-                    timestampStart: startTime,
-                    timestampEnd: endTime,
-                    reason: requestForm.reason.value,
-                    username: 'Anonymous',
-                    timestamp: currentTime // Use consistent timestamp field name
-                };
-
-                console.log('Submitting request with data:', requestData);
-                
-                const response = await chrome.runtime.sendMessage({
-                    type: 'addRequest',
-                    data: requestData
-                });
-
-                if (response.success) {
-                    alert('Citation request submitted successfully!');
-                    requestForm.reset();
-                    // Refresh the requests list if it's visible
-                    const requestsContainer = document.getElementById('citation-requests-container');
-                    if (requestsContainer) {
-                        loadCitationRequests();
-                    }
-                } else {
-                    throw new Error(response.error);
-                }
-            } catch (error) {
-                console.error("Error submitting citation request:", error);
-                alert('Error submitting request. Please try again.');
-            }
-        });
-    }
-}
 
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
@@ -690,8 +511,16 @@ function updateCitationsList(citations, container) {
     existingElements.forEach(element => element.remove());
 
     // Clear and update container
-    container.innerHTML = '';
+    container.innerHTML = `
+        <div class="citation-header">
+            <h3>Citations</h3>
+            <button class="add-citation-button">Add Citation</button>
+        </div>
+    `;
     container.appendChild(fragment);
+    container.querySelector('.add-citation-button').addEventListener('click', () => {
+        loadPage("youtube_extension_citation.html", "modal-container");
+    });
     updateHighlighting();
 }
 
@@ -754,8 +583,16 @@ function updateRequestsList(requests, container) {
         });
     }
 
-    container.innerHTML = '';
+    container.innerHTML = `
+        <div class="request-header">
+            <h3>Citation Requests</h3>
+            <button class="add-request-button">Add Request</button>
+        </div>
+    `;
     container.appendChild(fragment);
+    container.querySelector('.add-request-button').addEventListener('click', () => {
+        loadPage("youtube_extension_request.html", "modal-container");
+    });
     updateHighlighting();
 }
 
@@ -997,6 +834,175 @@ async function migrateCitationsToNewFormat() {
     }
 }
 
+// Add modal functionality
+function createModal(content) {
+    const modal = document.createElement('div');
+    modal.className = 'citation-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div class="modal-body"></div>
+        </div>
+    `;
+    
+    modal.querySelector('.modal-body').appendChild(content);
+    document.body.appendChild(modal);
+    
+    modal.querySelector('.close-modal').onclick = () => {
+        modal.remove();
+    };
+    
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.remove();
+        }
+    };
+    
+    return modal;
+}
+
+function loadPage(url, containerId, callback = null) {
+    fetch(chrome.runtime.getURL(url))
+        .then(response => response.text())
+        .then(html => {
+            if (containerId === 'modal-container') {
+                // Create a temporary container
+                const tempContainer = document.createElement('div');
+                tempContainer.innerHTML = html;
+                const modal = createModal(tempContainer);
+                setupFormListeners(modal);
+                if (callback) callback(modal);
+            } else {
+                document.getElementById(containerId).innerHTML = html;
+                setupFormListeners();
+                if (callback) callback();
+            }
+        })
+        .catch(error => console.error("Error loading form:", error));
+}
+
+async function setupFormListeners(container = document) {
+    const form = container.getElementById('citation-form');
+    if (form && !form.dataset.listener) {
+        form.dataset.listener = "true";
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            
+            // Validate timestamp format
+            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+            const startTime = form.timestampStart.value;
+            const endTime = form.timestampEnd.value;
+
+            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
+                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
+                return;
+            }
+
+            // Compare timestamps
+            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+
+            if (startSeconds >= endSeconds) {
+                alert('Start timestamp must be less than end timestamp');
+                return;
+            }
+            
+            try {
+                const citationData = {
+                    videoId,
+                    citationTitle: form.citationTitle.value,
+                    timestampStart: startTime,
+                    timestampEnd: endTime,
+                    description: form.description.value,
+                    username: 'Anonymous', // Replace with actual user authentication
+                    dateAdded: new Date().toISOString()
+                };
+                
+                const response = await chrome.runtime.sendMessage({
+                    type: 'addCitation',
+                    data: citationData
+                });
+
+                if (response.success) {
+                    alert('Citation added successfully!');
+                    form.reset();
+                    loadCitations();
+                } else {
+                    throw new Error(response.error);
+                }
+            } catch (error) {
+                console.error("Error adding citation:", error);
+                alert('Error adding citation. Please try again.');
+            }
+        });
+    }
+
+    const requestForm = container.getElementById('request-form');
+    if (requestForm && !requestForm.dataset.listener) {
+        requestForm.dataset.listener = "true";
+        requestForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            
+            // Validate timestamp format
+            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+            const startTime = requestForm.timestampStart.value;
+            const endTime = requestForm.timestampEnd.value;
+
+            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
+                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
+                return;
+            }
+
+            // Compare timestamps
+            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+
+            if (startSeconds >= endSeconds) {
+                alert('Start timestamp must be less than end timestamp');
+                return;
+            }
+            
+            try {
+                // Get current timestamp in ISO format
+                const currentTime = new Date().toISOString();
+                
+                const requestData = {
+                    videoId,
+                    timestampStart: startTime,
+                    timestampEnd: endTime,
+                    reason: requestForm.reason.value,
+                    username: 'Anonymous',
+                    timestamp: currentTime // Use consistent timestamp field name
+                };
+
+                console.log('Submitting request with data:', requestData);
+                
+                const response = await chrome.runtime.sendMessage({
+                    type: 'addRequest',
+                    data: requestData
+                });
+
+                if (response.success) {
+                    alert('Citation request submitted successfully!');
+                    requestForm.reset();
+                    // Refresh the requests list if it's visible
+                    const requestsContainer = document.getElementById('citation-requests-container');
+                    if (requestsContainer) {
+                        loadCitationRequests();
+                    }
+                } else {
+                    throw new Error(response.error);
+                }
+            } catch (error) {
+                console.error("Error submitting citation request:", error);
+                alert('Error submitting request. Please try again.');
+            }
+        });
+    }
+}
+
 // Add event listener for respond button
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('respond-btn')) {
@@ -1006,3 +1012,68 @@ document.addEventListener('click', (e) => {
         window.respondWithCitation(start, end, reason);
     }
 });
+
+// Add CSS styles for the modal
+const style = document.createElement('style');
+style.textContent = `
+    .citation-modal {
+        display: block;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.4);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 600px;
+        position: relative;
+        border-radius: 5px;
+    }
+
+    .close-modal {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .close-modal:hover,
+    .close-modal:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .citation-header,
+    .request-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .add-citation-button,
+    .add-request-button {
+        padding: 8px 16px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .add-citation-button:hover,
+    .add-request-button:hover {
+        background-color: #0056b3;
+    }
+`;
+document.head.appendChild(style);
