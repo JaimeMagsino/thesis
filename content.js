@@ -2,7 +2,7 @@
 window.respondWithCitation = function(start, end, reason) {
     // Switch to Add Citation tab and load the form
     document.getElementById('add-citation-btn').classList.add('active');
-    document.getElementById('request-citation-btn').classList.remove('active');
+    document.getElementById('add-request-btn').classList.remove('active');
     loadPage("youtube_extension_citation.html", "modal-container", () => {
         // This callback runs after the form is loaded
         const form = document.getElementById('citation-form');
@@ -50,19 +50,80 @@ function insertCitationButtons() {
     citationControls.style.cssText = "background-color: #f8f9fa; padding: 10px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; border-radius: 5px; flex-direction: column;";
     
     citationControls.innerHTML = `
-        <div style="display: flex; gap: 10px;">
-            <button id="citation-requests-btn">Citation Requests</button>
-            <button id="citations-btn">Citations</button>
-            <select id="sort-options">
-                <option value="timestamp">Sort by Date</option>
-                <option value="likes">Sort by Likes</option>
-            </select>
+        <div style="display: flex; gap: 10px; flex-direction: column; width: 100%;">
+            <div style="display: flex; gap: 10px; justify-content: space-between;">
+                <button id="citation-requests-btn">Citation Requests</button>
+                <button id="citations-btn">Citations</button>
+                <select id="sort-options">
+                    <option value="timestamp">Sort by Date</option>
+                    <option value="likes">Sort by Likes</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="add-citation-btn" class="action-btn">Add Citation</button>
+                <button id="add-request-btn" class="action-btn">Request Citation</button>
+            </div>
+            <div id="citation-requests-container" style="display: none;"></div>
+            <div id="citations-container" style="display: none;"></div>
         </div>
-        <div id="citation-requests-container" style="display: none;"></div>
-        <div id="citations-container" style="display: none;"></div>
     `;
     
     secondaryElement.prepend(citationControls);
+
+    // Add event listeners for the new buttons
+    document.getElementById("add-citation-btn").addEventListener("click", () => {
+        const modalContent = `
+            <div class="modal-content">
+                <h2>Add Citation</h2>
+                <form id="citation-form">
+                    <div class="form-group">
+                        <label for="citationTitle">Title:</label>
+                        <input type="text" id="citationTitle" name="citationTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="timestampStart">Start Time:</label>
+                        <input type="text" id="timestampStart" name="timestampStart" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="timestampEnd">End Time:</label>
+                        <input type="text" id="timestampEnd" name="timestampEnd" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description:</label>
+                        <textarea id="description" name="description" required></textarea>
+                    </div>
+                    <button type="submit">Submit Citation</button>
+                </form>
+            </div>
+        `;
+        createModal(modalContent);
+        setupFormListeners();
+    });
+
+    document.getElementById("add-request-btn").addEventListener("click", () => {
+        const modalContent = `
+            <div class="modal-content">
+                <h2>Request Citation</h2>
+                <form id="request-form">
+                    <div class="form-group">
+                        <label for="timestampStart">Start Time:</label>
+                        <input type="text" id="timestampStart" name="timestampStart" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="timestampEnd">End Time:</label>
+                        <input type="text" id="timestampEnd" name="timestampEnd" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reason">Reason:</label>
+                        <textarea id="reason" name="reason" required></textarea>
+                    </div>
+                    <button type="submit">Submit Request</button>
+                </form>
+            </div>
+        `;
+        createModal(modalContent);
+        setupFormListeners();
+    });
 
     document.getElementById("citation-requests-btn").addEventListener("click", () => {
         switchTab("Citation Requests");
@@ -840,29 +901,124 @@ async function migrateCitationsToNewFormat() {
 
 // Add modal functionality
 function createModal(content) {
-    const modal = document.createElement('div');
-    modal.className = 'citation-modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <div class="modal-body"></div>
+    // Create modal container if it doesn't exist
+    let modalContainer = document.getElementById('modal-container');
+    if (!modalContainer) {
+        modalContainer = document.createElement('div');
+        modalContainer.id = 'modal-container';
+        modalContainer.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        `;
+        document.body.appendChild(modalContainer);
+    }
+
+    // Add modal content with styles
+    modalContainer.innerHTML = `
+        <div class="modal" style="
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        ">
+            <button class="close-modal" style="
+                position: absolute;
+                right: 10px;
+                top: 10px;
+                background: none;
+                border: none;
+                font-size: 20px;
+                cursor: pointer;
+                padding: 5px;
+            ">&times;</button>
+            ${content}
         </div>
     `;
-    
-    modal.querySelector('.modal-body').appendChild(content);
-    document.body.appendChild(modal);
-    
-    modal.querySelector('.close-modal').onclick = () => {
-        modal.remove();
-    };
-    
-    window.onclick = (event) => {
-        if (event.target === modal) {
-            modal.remove();
+
+    // Add styles for form elements
+    const style = document.createElement('style');
+    style.textContent = `
+        .modal-content {
+            padding: 20px;
         }
-    };
-    
-    return modal;
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .action-btn {
+            background-color: #065fd4;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .action-btn:hover {
+            background-color: #0056b3;
+        }
+        button[type="submit"] {
+            background-color: #065fd4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Add close button functionality
+    const closeBtn = modalContainer.querySelector('.close-modal');
+    closeBtn.addEventListener('click', () => {
+        modalContainer.remove();
+    });
+
+    // Close modal when clicking outside
+    modalContainer.addEventListener('click', (e) => {
+        if (e.target === modalContainer) {
+            modalContainer.remove();
+        }
+    });
 }
 
 function loadPage(url, containerId, callback = null) {
@@ -1016,68 +1172,3 @@ document.addEventListener('click', (e) => {
         window.respondWithCitation(start, end, reason);
     }
 });
-
-// Add CSS styles for the modal
-const style = document.createElement('style');
-style.textContent = `
-    .citation-modal {
-        display: block;
-        position: fixed;
-        z-index: 9999;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.4);
-    }
-
-    .modal-content {
-        background-color: #fefefe;
-        margin: 15% auto;
-        padding: 20px;
-        border: 1px solid #888;
-        width: 80%;
-        max-width: 600px;
-        position: relative;
-        border-radius: 5px;
-    }
-
-    .close-modal {
-        color: #aaa;
-        float: right;
-        font-size: 28px;
-        font-weight: bold;
-        cursor: pointer;
-    }
-
-    .close-modal:hover,
-    .close-modal:focus {
-        color: black;
-        text-decoration: none;
-        cursor: pointer;
-    }
-
-    .citation-header,
-    .request-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-    }
-
-    .add-citation-button,
-    .add-request-button {
-        padding: 8px 16px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .add-citation-button:hover,
-    .add-request-button:hover {
-        background-color: #0056b3;
-    }
-`;
-document.head.appendChild(style);
