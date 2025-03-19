@@ -55,10 +55,12 @@ function insertBelowTitle() {
 
     const newElement = document.createElement("div");
     newElement.id = "custom-extension-element";
-    newElement.style.cssText = "background-color: #f0f0f0; padding: 10px; margin-top: 5px;";
+    newElement.className = "custom-extension-element";
 
     newElement.innerHTML = `
-        <h3>Citation Controls</h3>
+        <div class="header-container">
+            <h3>Citation Controls</h3>
+        </div>
         <button id="add-citation-btn" class="tab-btn active">Add Citation</button>
         <button id="request-citation-btn" class="tab-btn">Request for Citation</button>
         
@@ -218,70 +220,164 @@ async function setupFormListeners() {
     }
 }
 
+// Handle voting on requests
+async function handleRequestVote(requestId, voteType) {
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    const voteControls = document.querySelector(`.request-vote-controls[data-request-id="${requestId}"]`);
+    const voteScoreElement = voteControls.querySelector('.vote-score');
+    const upvoteBtn = voteControls.querySelector('.upvote-btn');
+    const downvoteBtn = voteControls.querySelector('.downvote-btn');
+
+    // Get current vote score
+    let voteScore = parseInt(voteScoreElement.textContent);
+
+    // Get previous vote
+    const storageKey = `request_votes_${videoId}`;
+    const userVotes = await new Promise(resolve => {
+        chrome.storage.local.get(storageKey, (result) => {
+            resolve(result[storageKey] || {});
+        });
+    });
+    const previousVote = userVotes[requestId];
+
+    // Update score and UI based on the vote
+    if (voteType === 'up') {
+        if (previousVote === 'up') {
+            // Remove upvote
+            voteScore--;
+            upvoteBtn.classList.remove('active');
+            upvoteBtn.title = 'Upvote';
+            userVotes[requestId] = null;
+        } else {
+            // Upvote
+            voteScore++;
+            if (previousVote === 'down') {
+                // Remove previous downvote
+                voteScore++;
+            }
+            upvoteBtn.classList.add('active');
+            downvoteBtn.classList.remove('active');
+            upvoteBtn.title = 'Remove upvote';
+            downvoteBtn.title = 'Downvote';
+            userVotes[requestId] = 'up';
+        }
+    } else {
+        if (previousVote === 'down') {
+            // Remove downvote
+            voteScore++;
+            downvoteBtn.classList.remove('active');
+            downvoteBtn.title = 'Downvote';
+            userVotes[requestId] = null;
+        } else {
+            // Downvote
+            voteScore--;
+            if (previousVote === 'up') {
+                // Remove previous upvote
+                voteScore--;
+            }
+            downvoteBtn.classList.add('active');
+            upvoteBtn.classList.remove('active');
+            downvoteBtn.title = 'Downvote';
+            upvoteBtn.title = 'Upvote';
+            userVotes[requestId] = 'down';
+        }
+    }
+
+    // Update the displayed score
+    voteScoreElement.textContent = voteScore;
+
+    try {
+        // Send update to background script
+        const response = await chrome.runtime.sendMessage({
+            type: 'updateRequestVotes',
+            videoId,
+            requestId,
+            voteValue: voteScore,
+            userVote: userVotes[requestId]
+        });
+
+        if (!response.success) {
+            throw new Error(response.error);
+        }
+    } catch (error) {
+        console.error('Error updating votes:', error);
+        // Revert UI changes on error
+        loadCitationRequests();
+    }
+}
+
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
-    
-    if (!secondaryElement) return;
-    if (document.getElementById("citation-controls")) return;
+    if (!secondaryElement) {
+        console.log("Secondary element not found");
+        return;
+    }
     
     const citationControls = document.createElement("div");
     citationControls.id = "citation-controls";
-    citationControls.style.cssText = "background-color: #f8f9fa; padding: 10px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; border-radius: 5px; flex-direction: column;";
+    citationControls.className = "citation-controls";
     
     citationControls.innerHTML = `
-        <div style="display: flex; gap: 10px;">
+        <div class="button-container">
             <button id="citation-requests-btn">Citation Requests</button>
             <button id="citations-btn">Citations</button>
-            <select id="sort-options">
-                <option value="timestamp">Sort by Date</option>
-                <option value="likes">Sort by Likes</option>
-            </select>
         </div>
-        <h3 id="citation-title">Citations</h3>
-        <div id="citation-requests-container" style="display: none;"></div>
-        <div id="citations-container" style="display: none;"></div>
+        <div id="citation-title-container" class="header-container">
+            <h3 id="citation-title">Citations</h3>
+        </div>
+        <div id="citation-requests-container" class="requests-container"></div>
+        <div id="citations-container" class="citations-container"></div>
     `;
     
     secondaryElement.prepend(citationControls);
 
-    document.getElementById("citation-requests-btn").addEventListener("click", () => {
-        switchTab("Citation Requests");
+    // Create and add sort select immediately
+    const titleContainer = document.getElementById('citation-title-container');
+    const sortSelect = createSortSelect();
+    titleContainer.appendChild(sortSelect);
+    sortSelect.value = currentSortOption;
+
+    // Add event listeners for tab switching
+    document.getElementById('citation-requests-btn').addEventListener('click', () => {
+        document.getElementById('citations-container').style.display = 'none';
+        document.getElementById('citation-requests-container').style.display = 'block';
+        document.getElementById('citation-title').textContent = 'Citation Requests';
         loadCitationRequests();
     });
-    document.getElementById("citations-btn").addEventListener("click", () => {
-        switchTab("Citations");
+
+    document.getElementById('citations-btn').addEventListener('click', () => {
+        document.getElementById('citation-requests-container').style.display = 'none';
+        document.getElementById('citations-container').style.display = 'block';
+        document.getElementById('citation-title').textContent = 'Citations';
         loadCitations();
     });
 
-    // Automatically show the Citation Requests tab
-    switchTab("Citation Requests");
-    loadCitationRequests();
-
     // Add event listener for sort options
-    document.getElementById('sort-options').addEventListener('change', (e) => {
+    sortSelect.addEventListener('change', (e) => {
         currentSortOption = e.target.value;
         const citationsContainer = document.getElementById('citations-container');
         const requestsContainer = document.getElementById('citation-requests-container');
         
-        // Update the current view immediately without reloading
-        if (citationsContainer.style.display !== 'none') {
-            const sortedCitations = sortItems(currentCitations, currentSortOption, 'citation');
-            updateCitationsList(sortedCitations, citationsContainer);
-        } else if (requestsContainer.style.display !== 'none') {
-            const sortedRequests = sortItems(currentRequests, currentSortOption, 'request');
-            updateRequestsList(sortedRequests, requestsContainer);
+        if (citationsContainer.style.display === 'block') {
+            loadCitations();
+        } else if (requestsContainer.style.display === 'block') {
+            loadCitationRequests();
         }
     });
 
-    // Set initial sort option to 'likes'
-    document.getElementById('sort-options').value = 'likes';
+    // Load initial content
+    document.getElementById('citations-container').style.display = 'block';
+    loadCitations();
 }
 
-function switchTab(tabName) {
-    document.getElementById("citation-title").textContent = tabName;
-    document.getElementById("citation-requests-container").style.display = tabName === "Citation Requests" ? "block" : "none";
-    document.getElementById("citations-container").style.display = tabName === "Citations" ? "block" : "none";
-    forceUpdateTitle();
+function createSortSelect() {
+    const sortSelect = document.createElement('select');
+    sortSelect.className = 'sort-select';
+    sortSelect.innerHTML = `
+        <option value="upvotes">Most Upvoted</option>
+        <option value="recent">Sort by Recent</option>
+    `;
+    return sortSelect;
 }
 
 async function loadCitationRequests() {
@@ -294,76 +390,41 @@ async function loadCitationRequests() {
     const videoId = new URLSearchParams(window.location.search).get('v');
     
     try {
-        const response = await chrome.runtime.sendMessage({
-            type: 'getRequests',
-            videoId
-        });
+        const [response, votesResponse] = await Promise.all([
+            chrome.runtime.sendMessage({
+                type: 'getRequests',
+                videoId
+            }),
+            new Promise(resolve => {
+                chrome.storage.local.get(`request_votes_${videoId}`, (result) => {
+                    resolve(result[`request_votes_${videoId}`] || {});
+                });
+            })
+        ]);
 
         if (!response.success) {
             throw new Error(response.error);
         }
 
         const requests = response.requests;
+        const userVotes = votesResponse;
         
-        // Only update DOM if container is visible and data has changed
-        if (container.style.display !== 'none' && JSON.stringify(requests) !== JSON.stringify(currentRequests)) {
-            currentRequests = sortItems(requests, currentSortOption, 'request');
-            requestAnimationFrame(() => {
-                container.innerHTML = '';
-                const fragment = document.createDocumentFragment();
-                
-                if (requests.length === 0) {
-                    const noCitations = document.createElement('p');
-                    noCitations.textContent = 'No citation requests yet.';
-                    fragment.appendChild(noCitations);
-                } else {
-                    requests.forEach(request => {
-                        const citationElement = document.createElement("div");
-                        citationElement.className = "citation-request";
-                        citationElement.dataset.start = parseTimestamp(request.timestampStart);
-                        citationElement.dataset.end = parseTimestamp(request.timestampEnd);
-                        citationElement.style.cssText = `
-                            border: 1px solid #ddd;
-                            padding: 10px;
-                            margin: 10px 0;
-                            border-radius: 5px;
-                            background-color: #f8f9fa;
-                            transition: background-color 0.3s;
-                        `;
-                        
-                        citationElement.innerHTML = `
-                            <div class="request-content">
-                                <strong>Time Range:</strong>
-                                <span class="time-range">${request.timestampStart} - ${request.timestampEnd}</span>
-                                <strong>Requested by:</strong>
-                                <span>${request.username}</span>
-                                <strong>Date:</strong>
-                                <span>${new Intl.DateTimeFormat('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: true
-                                }).format(new Date(request.timestamp))}</span>
-                                <div class="description-area">${request.reason}</div>
-                            </div>
-                            <button class="respond-btn" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason.replace(/'/g, "\\'")}">
-                                Respond
-                            </button>
-                        `;
-                        
-                        fragment.appendChild(citationElement);
-                    });
-                }
+        // Attach user votes to requests for consistent rendering
+        const requestsWithVotes = requests.map(request => ({
+            ...request,
+            userVote: userVotes[request.id] || null
+        }));
 
-                container.appendChild(fragment);
-                updateHighlighting(); // Re-apply highlighting after update
-            });
+        // Only update if data has changed
+        if (JSON.stringify(requestsWithVotes) !== JSON.stringify(currentRequests)) {
+            currentRequests = sortItems(requestsWithVotes, currentSortOption, 'request');
+            updateRequestsList(currentRequests, container);
         }
     } catch (error) {
         console.error("Error loading citation requests:", error);
-        container.innerHTML = '<p>Error loading citation requests: ' + error.message + '</p>';
+        if (container.style.display === 'block') {
+            container.innerHTML = '<p>Error loading citation requests: ' + error.message + '</p>';
+        }
     }
 }
 
@@ -418,14 +479,6 @@ async function loadCitations() {
                         citationElement.className = "citation-item";
                         citationElement.dataset.start = parseTimestamp(citation.timestampStart);
                         citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
-                        citationElement.style.cssText = `
-                            border: 1px solid #ddd;
-                            padding: 10px;
-                            margin-bottom: 10px;
-                            border-radius: 5px;
-                            background-color: white;
-                            transition: background-color 0.3s;
-                        `;
                         
                         const userVote = userVotes[citation.id] || null;
                         
@@ -446,26 +499,25 @@ async function loadCitations() {
                             }).format(new Date(citation.dateAdded))}</p>
                             <p>${citation.description}</p>
                             <div class="vote-controls" data-citation-id="${citation.id}">
-                                <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
-                                        title="${userVote === 'like' ? 'Remove like' : 'Like'}">
-                                    <span class="vote-icon">👍</span>
-                                    <span class="vote-count">${citation.likes || 0}</span>
+                                <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
+                                        title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                                    <span class="vote-icon">▲</span>
                                 </button>
-                                <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
-                                        title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
-                                    <span class="vote-icon">👎</span>
-                                    <span class="vote-count">${citation.dislikes || 0}</span>
+                                <span class="vote-score">${citation.voteScore || 0}</span>
+                                <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
+                                        title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                                    <span class="vote-icon">▼</span>
                                 </button>
                             </div>
                         `;
 
                         // Add vote event listeners
                         const voteControls = citationElement.querySelector('.vote-controls');
-                        const likeBtn = voteControls.querySelector('.like-btn');
-                        const dislikeBtn = voteControls.querySelector('.dislike-btn');
+                        const upvoteBtn = voteControls.querySelector('.upvote-btn');
+                        const downvoteBtn = voteControls.querySelector('.downvote-btn');
 
-                        likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
-                        dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
+                        upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
+                        downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
                         
                         // Add click handlers for timestamp links
                         citationElement.querySelectorAll('.timestamp-link').forEach(link => {
@@ -500,64 +552,61 @@ async function loadCitations() {
 async function handleVote(citationId, voteType) {
     const videoId = new URLSearchParams(window.location.search).get('v');
     const voteControls = document.querySelector(`.vote-controls[data-citation-id="${citationId}"]`);
-    const likeBtn = voteControls.querySelector('.like-btn');
-    const dislikeBtn = voteControls.querySelector('.dislike-btn');
-    const likeCount = likeBtn.querySelector('.vote-count');
-    const dislikeCount = dislikeBtn.querySelector('.vote-count');
+    const voteScoreElement = voteControls.querySelector('.vote-score');
+    const upvoteBtn = voteControls.querySelector('.upvote-btn');
+    const downvoteBtn = voteControls.querySelector('.downvote-btn');
 
-    // Get current vote counts
-    let likes = parseInt(likeCount.textContent);
-    let dislikes = parseInt(dislikeCount.textContent);
+    // Get current vote score
+    let voteScore = parseInt(voteScoreElement.textContent);
 
     // Get previous vote
     const previousVote = userVotes[citationId];
 
-    // Update counts and UI based on the vote
-    if (voteType === 'like') {
-        if (previousVote === 'like') {
-            // Unlike
-            likes--;
-            likeBtn.classList.remove('active');
-            likeBtn.title = 'Like';
+    // Update score and UI based on the vote
+    if (voteType === 'up') {
+        if (previousVote === 'up') {
+            // Remove upvote
+            voteScore--;
+            upvoteBtn.classList.remove('active');
+            upvoteBtn.title = 'Upvote';
             userVotes[citationId] = null;
         } else {
-            // Like
-            likes++;
-            likeBtn.classList.add('active');
-            likeBtn.title = 'Remove like';
-            if (previousVote === 'dislike') {
-                // Remove previous dislike
-                dislikes--;
-                dislikeBtn.classList.remove('active');
-                dislikeBtn.title = 'Dislike';
+            // Upvote
+            voteScore++;
+            if (previousVote === 'down') {
+                // Remove previous downvote
+                voteScore++;
             }
-            userVotes[citationId] = 'like';
+            upvoteBtn.classList.add('active');
+            downvoteBtn.classList.remove('active');
+            upvoteBtn.title = 'Remove upvote';
+            downvoteBtn.title = 'Downvote';
+            userVotes[citationId] = 'up';
         }
     } else {
-        if (previousVote === 'dislike') {
-            // Remove dislike
-            dislikes--;
-            dislikeBtn.classList.remove('active');
-            dislikeBtn.title = 'Dislike';
+        if (previousVote === 'down') {
+            // Remove downvote
+            voteScore++;
+            downvoteBtn.classList.remove('active');
+            downvoteBtn.title = 'Downvote';
             userVotes[citationId] = null;
         } else {
-            // Dislike
-            dislikes++;
-            dislikeBtn.classList.add('active');
-            dislikeBtn.title = 'Remove dislike';
-            if (previousVote === 'like') {
-                // Remove previous like
-                likes--;
-                likeBtn.classList.remove('active');
-                likeBtn.title = 'Like';
+            // Downvote
+            voteScore--;
+            if (previousVote === 'up') {
+                // Remove previous upvote
+                voteScore--;
             }
-            userVotes[citationId] = 'dislike';
+            downvoteBtn.classList.add('active');
+            upvoteBtn.classList.remove('active');
+            downvoteBtn.title = 'Downvote';
+            upvoteBtn.title = 'Upvote';
+            userVotes[citationId] = 'down';
         }
     }
 
-    // Update the displayed counts
-    likeCount.textContent = likes;
-    dislikeCount.textContent = dislikes;
+    // Update the displayed score
+    voteScoreElement.textContent = voteScore;
 
     try {
         // Send update to background script
@@ -565,7 +614,7 @@ async function handleVote(citationId, voteType) {
             type: 'updateCitationVotes',
             videoId,
             citationId,
-            votes: { likes, dislikes },
+            voteValue: voteScore,
             userVote: userVotes[citationId]
         });
 
@@ -613,26 +662,8 @@ function updateCitationsList(citations, container) {
         citationElement.dataset.start = parseTimestamp(citation.timestampStart);
         citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
         
-        // Check if citation should be highlighted
-        const isHighlighted = currentTime >= parseTimestamp(citation.timestampStart) && 
-                            currentTime <= parseTimestamp(citation.timestampEnd);
-        
-        // Update styling
-        citationElement.style.cssText = `
-            border: 1px solid ${isHighlighted ? '#4CAF50' : '#ddd'};
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            background-color: ${isHighlighted ? '#E8F5E9' : 'white'};
-            transition: all 0.3s ease;
-            box-shadow: ${isHighlighted ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};
-        `;
-        
-        citationElement.classList.toggle('active-citation', isHighlighted);
-
         const userVote = userVotes[citation.id] || null;
         
-        // Update content
         citationElement.innerHTML = `
             <p><strong>Title:</strong> ${citation.citationTitle}</p>
             <p><strong>Time Range:</strong> 
@@ -650,26 +681,25 @@ function updateCitationsList(citations, container) {
             }).format(new Date(citation.dateAdded))}</p>
             <p>${citation.description}</p>
             <div class="vote-controls" data-citation-id="${citation.id}">
-                <button class="vote-btn like-btn ${userVote === 'like' ? 'active' : ''}" 
-                        title="${userVote === 'like' ? 'Remove like' : 'Like'}">
-                    <span class="vote-icon">👍</span>
-                    <span class="vote-count">${citation.likes || 0}</span>
+                <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
+                        title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                    <span class="vote-icon">▲</span>
                 </button>
-                <button class="vote-btn dislike-btn ${userVote === 'dislike' ? 'active' : ''}" 
-                        title="${userVote === 'dislike' ? 'Remove dislike' : 'Dislike'}">
-                    <span class="vote-icon">👎</span>
-                    <span class="vote-count">${citation.dislikes || 0}</span>
+                <span class="vote-score">${citation.voteScore || 0}</span>
+                <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
+                        title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                    <span class="vote-icon">▼</span>
                 </button>
             </div>
         `;
 
         // Re-add event listeners
         const voteControls = citationElement.querySelector('.vote-controls');
-        const likeBtn = voteControls.querySelector('.like-btn');
-        const dislikeBtn = voteControls.querySelector('.dislike-btn');
+        const upvoteBtn = voteControls.querySelector('.upvote-btn');
+        const downvoteBtn = voteControls.querySelector('.downvote-btn');
 
-        likeBtn.addEventListener('click', () => handleVote(citation.id, 'like'));
-        dislikeBtn.addEventListener('click', () => handleVote(citation.id, 'dislike'));
+        upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
+        downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
         
         // Add click handlers for timestamp links
         citationElement.querySelectorAll('.timestamp-link').forEach(link => {
@@ -713,50 +743,84 @@ function updateRequestsList(requests, container) {
             requestElement.dataset.end = parseTimestamp(request.timestampEnd);
             
             // Check if request should be highlighted
-            const isHighlighted = currentTime >= parseTimestamp(request.timestampStart) && 
-                                currentTime <= parseTimestamp(request.timestampEnd);
-            
-            requestElement.style.cssText = `
-                border: 1px solid ${isHighlighted ? '#2196F3' : '#ddd'};
-                padding: 10px;
-                margin: 10px 0;
-                border-radius: 5px;
-                background-color: ${isHighlighted ? '#E3F2FD' : '#f8f9fa'};
-                transition: all 0.3s ease;
-                box-shadow: ${isHighlighted ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};
-            `;
-            
+            const start = Number(requestElement.dataset.start);
+            const end = Number(requestElement.dataset.end);
+            const isHighlighted = currentTime >= start && currentTime <= end;
             if (isHighlighted) {
                 requestElement.classList.add('active-citation');
             }
-            
+
             requestElement.innerHTML = `
-                <p><strong>Timestamp:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
-                <p><strong>Reason:</strong> ${request.reason}</p>
-                <p><strong>Requested by:</strong> ${request.username}</p>
-                <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                }).format(new Date(request.timestamp))}</p>
+                <div class="request-content">
+                    <strong>Time Range:</strong>
+                    <span class="time-range">
+                        <a href="#" class="timestamp-link" data-time="${start}">${request.timestampStart}</a>
+                        -
+                        <a href="#" class="timestamp-link" data-time="${end}">${request.timestampEnd}</a>
+                    </span>
+                    <strong>Requested by:</strong>
+                    <span>${request.username}</span>
+                    <strong>Date:</strong>
+                    <span>${new Intl.DateTimeFormat('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }).format(new Date(request.timestamp))}</span>
+                    <div class="description-area">${request.reason}</div>
+                    <div class="request-vote-controls" data-request-id="${request.id}">
+                        <button class="vote-btn upvote-btn ${request.userVote === 'up' ? 'active' : ''}" 
+                                title="${request.userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                            <span class="vote-icon">▲</span>
+                        </button>
+                        <span class="vote-score">${request.voteScore || 0}</span>
+                        <button class="vote-btn downvote-btn ${request.userVote === 'down' ? 'active' : ''}" 
+                                title="${request.userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                            <span class="vote-icon">▼</span>
+                        </button>
+                    </div>
+                </div>
                 <button class="respond-btn" 
-                        data-start="${request.timestampStart}"
-                        data-end="${request.timestampEnd}"
+                        data-start="${request.timestampStart}" 
+                        data-end="${request.timestampEnd}" 
                         data-reason="${request.reason.replace(/"/g, '&quot;')}">
                     Respond with Citation
                 </button>
             `;
-            
+
+            // Add timestamp click handlers
+            requestElement.querySelectorAll('.timestamp-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    seekToTime(Number(link.dataset.time));
+                });
+            });
+
+            // Add vote event listeners
+            const voteControls = requestElement.querySelector('.request-vote-controls');
+            const upvoteBtn = voteControls.querySelector('.upvote-btn');
+            const downvoteBtn = voteControls.querySelector('.downvote-btn');
+
+            upvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'up'));
+            downvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'down'));
+
             fragment.appendChild(requestElement);
         });
     }
 
-    container.innerHTML = '';
-    container.appendChild(fragment);
-    updateHighlighting();
+    // Only update if container is visible and content has changed
+    if (container.style.display === 'block') {
+        const currentContent = container.innerHTML;
+        const newContent = document.createElement('div');
+        newContent.appendChild(fragment.cloneNode(true));
+        
+        if (currentContent !== newContent.innerHTML) {
+            container.innerHTML = '';
+            container.appendChild(fragment);
+        }
+    }
 }
 
 // Update highlighting function to trigger resort when highlighting changes
@@ -764,52 +828,47 @@ function updateHighlighting() {
     const citationsContainer = document.getElementById("citations-container");
     const requestsContainer = document.getElementById("citation-requests-container");
     
+    let needsResorting = false;
+
     // Update citations highlighting
-    if (citationsContainer && citationsContainer.style.display !== 'none') {
+    if (citationsContainer && citationsContainer.style.display === 'block') {
         citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
             const start = Number(citation.dataset.start);
             const end = Number(citation.dataset.end);
             const wasHighlighted = citation.classList.contains('active-citation');
-            const isNowHighlighted = currentTime >= start && currentTime <= end;
+            const isHighlighted = currentTime >= start && currentTime <= end;
             
-            if (isNowHighlighted !== wasHighlighted) {
-                if (isNowHighlighted) {
-                    citation.classList.add('active-citation');
-                    citation.style.borderColor = '#4CAF50';
-                    citation.style.backgroundColor = '#E8F5E9';
-                    citation.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                } else {
-                    citation.classList.remove('active-citation');
-                    citation.style.borderColor = '#ddd';
-                    citation.style.backgroundColor = 'white';
-                    citation.style.boxShadow = 'none';
-                }
+            if (isHighlighted !== wasHighlighted) {
+                citation.classList.toggle('active-citation', isHighlighted);
+                needsResorting = true;
             }
         });
+
+        if (needsResorting) {
+            const sortedCitations = sortItems(currentCitations, currentSortOption, 'citation');
+            updateCitationsList(sortedCitations, citationsContainer);
+        }
     }
     
     // Update citation requests highlighting
-    if (requestsContainer && requestsContainer.style.display !== 'none') {
+    needsResorting = false;
+    if (requestsContainer && requestsContainer.style.display === 'block') {
         requestsContainer.querySelectorAll('.citation-request').forEach(request => {
             const start = Number(request.dataset.start);
             const end = Number(request.dataset.end);
             const wasHighlighted = request.classList.contains('active-citation');
-            const isNowHighlighted = currentTime >= start && currentTime <= end;
+            const isHighlighted = currentTime >= start && currentTime <= end;
             
-            if (isNowHighlighted !== wasHighlighted) {
-                if (isNowHighlighted) {
-                    request.classList.add('active-citation');
-                    request.style.borderColor = '#2196F3';
-                    request.style.backgroundColor = '#E3F2FD';
-                    request.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                } else {
-                    request.classList.remove('active-citation');
-                    request.style.borderColor = '#ddd';
-                    request.style.backgroundColor = '#f8f9fa';
-                    request.style.boxShadow = 'none';
-                }
+            if (isHighlighted !== wasHighlighted) {
+                request.classList.toggle('active-citation', isHighlighted);
+                needsResorting = true;
             }
         });
+
+        if (needsResorting) {
+            const sortedRequests = sortItems(currentRequests, currentSortOption, 'request');
+            updateRequestsList(sortedRequests, requestsContainer);
+        }
     }
 }
 
@@ -848,18 +907,21 @@ let currentTime = 0;
 let currentVideoId = null;
 
 function setupTimeTracking() {
-    if (!player) return;
-    
-    player.addEventListener('timeupdate', () => {
-        currentTime = player.currentTime;
-        updateHighlighting();
-        
-        // Only trigger resort if there are active items
-        const hasActiveItems = document.querySelectorAll('.active-citation').length > 0;
-        if (hasActiveItems) {
-            debouncedSortAndUpdate();
+    const video = document.querySelector('video');
+    if (!video) return;
+
+    let lastTime = -1;
+    const checkTime = () => {
+        const newTime = Math.floor(video.currentTime);
+        if (newTime !== lastTime) {
+            lastTime = newTime;
+            currentTime = newTime;
+            requestAnimationFrame(updateHighlighting);
         }
-    });
+        requestAnimationFrame(checkTime);
+    };
+
+    requestAnimationFrame(checkTime);
 }
 
 function setupVideoChangeTracking() {
@@ -903,6 +965,13 @@ function parseTimestamp(timestamp) {
     return seconds;
 }
 
+function seekToTime(seconds) {
+    const video = document.querySelector('video');
+    if (video) {
+        video.currentTime = seconds;
+    }
+}
+
 // Update citation requests and citations periodically with longer interval
 setInterval(() => {
     const videoId = new URLSearchParams(window.location.search).get('v');
@@ -916,20 +985,12 @@ setInterval(() => {
 let currentCitations = [];
 let currentRequests = [];
 let userVotes = {};
-let currentSortOption = 'likes'; // Default to likes for citations
+let currentSortOption = 'upvotes'; // Default to upvotes for citations
 
 // Add sort function
 function sortItems(items, sortBy, itemType = 'citation') {
-    if (!Array.isArray(items)) {
-        console.error('sortItems received non-array:', items);
-        return [];
-    }
+    if (!items || !Array.isArray(items)) return [];
     
-    // Use timestamp as default for requests, likes for citations
-    if (!sortBy) {
-        sortBy = itemType === 'request' ? 'timestamp' : 'likes';
-    }
-
     // Helper function to check if an item is currently highlighted
     const isHighlighted = (item) => {
         const start = parseTimestamp(item.timestampStart);
@@ -943,17 +1004,11 @@ function sortItems(items, sortBy, itemType = 'citation') {
     
     // Sort function for both groups
     const sortFunction = (a, b) => {
-        switch(sortBy) {
-            case 'timestamp':
-                // Get the timestamp for each item
-                const dateA = new Date(a.dateAdded || a.timestamp).getTime();
-                const dateB = new Date(b.dateAdded || b.timestamp).getTime();
-                // Sort by most recent first
-                return dateB - dateA;
-            case 'likes':
-                const likesA = parseInt(a.likes || 0);
-                const likesB = parseInt(b.likes || 0);
-                return likesB - likesA;
+        switch (sortBy) {
+            case 'upvotes':
+                return (b.voteScore || 0) - (a.voteScore || 0);
+            case 'recent':
+                return new Date(b.timestamp || b.dateAdded) - new Date(a.timestamp || a.dateAdded);
             default:
                 return 0;
         }
@@ -963,7 +1018,7 @@ function sortItems(items, sortBy, itemType = 'citation') {
     const sortedHighlighted = highlighted.sort(sortFunction);
     const sortedNormal = normal.sort(sortFunction);
 
-    // Combine the groups with highlighted items first
+    // Return highlighted items first, followed by normal items
     return [...sortedHighlighted, ...sortedNormal];
 }
 
