@@ -420,20 +420,24 @@ function insertCitationButtons() {
         const modalContent = `
             <div class="modal-content">
                 <h2>Add Citation</h2>
-                <form id="citation-form">
+                <form id="citation-form" novalidate>
                     <div class="form-group">
                         <label for="citationTitle">Title:</label>
                         <input type="text" id="citationTitle" name="citationTitle" required>
                     </div>
                     <div class="form-group">
-                        <label for="timestampStart">Start Time:</label>
+                        <label for="timestampStart">Start Time (HH:MM:SS):</label>
                         <input type="text" id="timestampStart" name="timestampStart" required 
                                placeholder="00:00:00" pattern="^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$">
+                        <small class="help-text">Enter time in format: hours:minutes:seconds (e.g., 00:05:30)</small>
+                        <div class="error-message"></div>
                     </div>
                     <div class="form-group">
-                        <label for="timestampEnd">End Time:</label>
+                        <label for="timestampEnd">End Time (HH:MM:SS):</label>
                         <input type="text" id="timestampEnd" name="timestampEnd" required 
                                placeholder="00:00:00" pattern="^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$">
+                        <small class="help-text">Enter time in format: hours:minutes:seconds (e.g., 00:05:30)</small>
+                        <div class="error-message"></div>
                     </div>
                     <div class="form-group">
                         <label for="description">Description:</label>
@@ -447,18 +451,57 @@ function insertCitationButtons() {
         // Create and show modal
         const modalContainer = createModal(modalContent);
         
+        // Set up timestamp validation
+        const startInput = modalContainer.querySelector('#timestampStart');
+        const endInput = modalContainer.querySelector('#timestampEnd');
+        setupTimestampValidation(startInput);
+        setupTimestampValidation(endInput);
+        
         // Set up form submission
         const form = modalContainer.querySelector('#citation-form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const videoId = new URLSearchParams(window.location.search).get('v');
+            
+            // Clear previous error messages
+            form.querySelectorAll('.error-message').forEach(el => el.textContent = '');
             
             try {
+                const startTime = form.timestampStart.value;
+                const endTime = form.timestampEnd.value;
+                
+                // Validate timestamps
+                if (!startTime || !endTime) {
+                    throw new Error('Both start and end times are required');
+                }
+                
+                if (!isValidTimeFormat(startTime)) {
+                    const errorEl = form.querySelector('#timestampStart + .help-text + .error-message');
+                    errorEl.textContent = 'Invalid time format. Use HH:MM:SS (e.g., 00:05:30)';
+                    return;
+                }
+                
+                if (!isValidTimeFormat(endTime)) {
+                    const errorEl = form.querySelector('#timestampEnd + .help-text + .error-message');
+                    errorEl.textContent = 'Invalid time format. Use HH:MM:SS (e.g., 00:05:30)';
+                    return;
+                }
+                
+                // Validate start time is less than end time
+                const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + parseInt(time), 0);
+                const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + parseInt(time), 0);
+                
+                if (startSeconds >= endSeconds) {
+                    const errorEl = form.querySelector('#timestampEnd + .help-text + .error-message');
+                    errorEl.textContent = 'End time must be greater than start time';
+                    return;
+                }
+                
+                const videoId = new URLSearchParams(window.location.search).get('v');
                 const citationData = {
                     videoId,
                     citationTitle: form.citationTitle.value,
-                    timestampStart: form.timestampStart.value,
-                    timestampEnd: form.timestampEnd.value,
+                    timestampStart: startTime,
+                    timestampEnd: endTime,
                     description: form.description.value,
                     username: 'Anonymous',
                     dateAdded: new Date().toISOString()
@@ -478,7 +521,7 @@ function insertCitationButtons() {
                 }
             } catch (error) {
                 console.error("Error adding citation:", error);
-                alert('Error adding citation: ' + error.message);
+                alert('Error: ' + error.message);
             }
         });
     });
@@ -487,16 +530,20 @@ function insertCitationButtons() {
         const modalContent = `
             <div class="modal-content">
                 <h2>Request Citation</h2>
-                <form id="request-form">
+                <form id="request-form" novalidate>
                     <div class="form-group">
-                        <label for="timestampStart">Start Time:</label>
+                        <label for="timestampStart">Start Time (HH:MM:SS):</label>
                         <input type="text" id="timestampStart" name="timestampStart" required 
                                placeholder="00:00:00" pattern="^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$">
+                        <small class="help-text">Enter time in format: hours:minutes:seconds (e.g., 00:05:30)</small>
+                        <div class="error-message"></div>
                     </div>
                     <div class="form-group">
-                        <label for="timestampEnd">End Time:</label>
+                        <label for="timestampEnd">End Time (HH:MM:SS):</label>
                         <input type="text" id="timestampEnd" name="timestampEnd" required 
                                placeholder="00:00:00" pattern="^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$">
+                        <small class="help-text">Enter time in format: hours:minutes:seconds (e.g., 00:05:30)</small>
+                        <div class="error-message"></div>
                     </div>
                     <div class="form-group">
                         <label for="reason">Reason:</label>
@@ -510,17 +557,56 @@ function insertCitationButtons() {
         // Create and show modal
         const modalContainer = createModal(modalContent);
         
+        // Set up timestamp validation
+        const startInput = modalContainer.querySelector('#timestampStart');
+        const endInput = modalContainer.querySelector('#timestampEnd');
+        setupTimestampValidation(startInput);
+        setupTimestampValidation(endInput);
+        
         // Set up form submission
         const form = modalContainer.querySelector('#request-form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const videoId = new URLSearchParams(window.location.search).get('v');
+            
+            // Clear previous error messages
+            form.querySelectorAll('.error-message').forEach(el => el.textContent = '');
             
             try {
+                const startTime = form.timestampStart.value;
+                const endTime = form.timestampEnd.value;
+                
+                // Validate timestamps
+                if (!startTime || !endTime) {
+                    throw new Error('Both start and end times are required');
+                }
+                
+                if (!isValidTimeFormat(startTime)) {
+                    const errorEl = form.querySelector('#timestampStart + .help-text + .error-message');
+                    errorEl.textContent = 'Invalid time format. Use HH:MM:SS (e.g., 00:05:30)';
+                    return;
+                }
+                
+                if (!isValidTimeFormat(endTime)) {
+                    const errorEl = form.querySelector('#timestampEnd + .help-text + .error-message');
+                    errorEl.textContent = 'Invalid time format. Use HH:MM:SS (e.g., 00:05:30)';
+                    return;
+                }
+                
+                // Validate start time is less than end time
+                const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + parseInt(time), 0);
+                const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + parseInt(time), 0);
+                
+                if (startSeconds >= endSeconds) {
+                    const errorEl = form.querySelector('#timestampEnd + .help-text + .error-message');
+                    errorEl.textContent = 'End time must be greater than start time';
+                    return;
+                }
+                
+                const videoId = new URLSearchParams(window.location.search).get('v');
                 const requestData = {
                     videoId,
-                    timestampStart: form.timestampStart.value,
-                    timestampEnd: form.timestampEnd.value,
+                    timestampStart: startTime,
+                    timestampEnd: endTime,
                     reason: form.reason.value,
                     username: 'Anonymous',
                     timestamp: new Date().toISOString()
@@ -540,7 +626,7 @@ function insertCitationButtons() {
                 }
             } catch (error) {
                 console.error("Error submitting request:", error);
-                alert('Error submitting request: ' + error.message);
+                alert('Error: ' + error.message);
             }
         });
     });
@@ -836,6 +922,59 @@ setInterval(() => {
 // Start initialization
 waitForDependencies();
 
+// Helper function to validate timestamps
+function validateTimestamps(startTime, endTime) {
+    const timeRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+    let errors = [];
+    
+    if (!timeRegex.test(startTime)) {
+        errors.push('Start time must be in format HH:MM:SS (e.g., 00:05:30)');
+    }
+    
+    if (!timeRegex.test(endTime)) {
+        errors.push('End time must be in format HH:MM:SS (e.g., 00:05:30)');
+    }
+    
+    if (errors.length > 0) {
+        throw new Error(errors.join('\n'));
+    }
+    
+    // Convert timestamps to seconds for comparison
+    const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + parseInt(time), 0);
+    const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + parseInt(time), 0);
+    
+    if (startSeconds >= endSeconds) {
+        throw new Error('Start time must be less than end time');
+    }
+    
+    return true;
+}
+
+// Helper function to validate time format
+function isValidTimeFormat(time) {
+    const timeRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+    return timeRegex.test(time);
+}
+
+// Helper function to add custom validation messages for timestamp inputs
+function setupTimestampValidation(input) {
+    input.addEventListener('invalid', (e) => {
+        e.preventDefault();
+        input.setCustomValidity('Please enter time in format HH:MM:SS (e.g., 00:05:30)');
+    });
+    
+    input.addEventListener('input', (e) => {
+        const value = e.target.value;
+        if (!value) {
+            input.setCustomValidity('Time is required');
+        } else if (!isValidTimeFormat(value)) {
+            input.setCustomValidity('Please enter time in format HH:MM:SS (e.g., 00:05:30)');
+        } else {
+            input.setCustomValidity('');
+        }
+    });
+}
+
 function createModal(content) {
     // Create modal container
     const modalContainer = document.createElement('div');
@@ -922,6 +1061,18 @@ function createModal(content) {
         }
         button[type="submit"]:hover {
             background-color: #0056b3;
+        }
+        .help-text {
+            color: #666;
+            font-size: 12px;
+            margin-top: 4px;
+            display: block;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 4px;
+            display: block;
         }
     `;
     document.head.appendChild(style);
