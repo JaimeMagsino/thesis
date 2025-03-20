@@ -153,7 +153,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     if (request.type === 'updateCitationVotes') {
-        handleUpdateCitationVotes(request.videoId, request.citationId, request.votes, request.userVote).then(sendResponse);
+        handleUpdateCitationVotes(request.videoId, request.citationId, request.voteValue, request.userVote).then(sendResponse);
+        return true;
+    }
+    if (request.type === 'updateRequestVotes') {
+        handleUpdateRequestVotes(request.videoId, request.requestId, request.voteValue, request.userVote).then(sendResponse);
         return true;
     }
     if (request.type === 'getUserVotes') {
@@ -175,8 +179,7 @@ async function handleAddCitation(data) {
             ...restData,
             citationTitle: data.citationTitle || data.source, // Handle both old and new format
             timestamp: new Date().toISOString(),
-            likes: 0,
-            dislikes: 0
+            voteScore: 0
         };
         
         const result = await firestoreRequest(`citations_${data.videoId}`, null, 'POST', citation);
@@ -228,12 +231,11 @@ async function handleGetCitations(videoId) {
 async function handleAddRequest(data) {
     try {
         console.log('Adding request:', data);
-        // Ensure we have a valid timestamp
         const request = {
             ...data,
-            timestamp: data.timestamp || new Date().toISOString()
+            voteScore: 0 // Initialize vote score
         };
-        console.log('Processed request data:', request);
+        
         const result = await firestoreRequest(`requests_${data.videoId}`, null, 'POST', request);
         const docId = result.name.split('/').pop();
         console.log('Request added successfully:', docId);
@@ -280,9 +282,9 @@ async function handleGetRequests(videoId) {
     }
 }
 
-async function handleUpdateCitationVotes(videoId, citationId, votes, userVote) {
+async function handleUpdateCitationVotes(videoId, citationId, voteValue, userVote) {
     try {
-        console.log('Updating citation votes:', { videoId, citationId, votes, userVote });
+        console.log('Updating citation votes:', { videoId, citationId, voteValue, userVote });
         
         // Get current citation data
         const citationRef = `citations_${videoId}/${citationId}`;
@@ -292,11 +294,10 @@ async function handleUpdateCitationVotes(videoId, citationId, votes, userVote) {
             throw new Error('Citation not found');
         }
 
-        // Update the votes
+        // Update the vote score
         const updatedData = {
             ...convertFromFirestore(citation),
-            likes: votes.likes,
-            dislikes: votes.dislikes
+            voteScore: voteValue
         };
 
         // Update the document
@@ -333,6 +334,47 @@ async function handleGetUserVotes(videoId) {
         return { success: true, votes: result };
     } catch (error) {
         console.error('Error getting user votes:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function handleUpdateRequestVotes(videoId, requestId, voteValue, userVote) {
+    try {
+        console.log('Updating request votes:', { videoId, requestId, voteValue, userVote });
+        
+        // Get current request data
+        const requestRef = `requests_${videoId}/${requestId}`;
+        const request = await firestoreRequest(`requests_${videoId}`, requestId, 'GET');
+        
+        if (!request) {
+            throw new Error('Request not found');
+        }
+
+        // Update the vote score
+        const updatedData = {
+            ...convertFromFirestore(request),
+            voteScore: voteValue
+        };
+
+        // Update the document
+        await firestoreRequest(`requests_${videoId}`, requestId, 'PATCH', updatedData);
+
+        // Store user's vote in chrome.storage.local
+        const storageKey = `request_votes_${videoId}`;
+        const existingVotes = await new Promise(resolve => {
+            chrome.storage.local.get(storageKey, (result) => {
+                resolve(result[storageKey] || {});
+            });
+        });
+
+        existingVotes[requestId] = userVote;
+        await new Promise(resolve => {
+            chrome.storage.local.set({ [storageKey]: existingVotes }, resolve);
+        });
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating request votes:', error);
         return { success: false, error: error.message };
     }
 }
