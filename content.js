@@ -30,11 +30,54 @@ function waitForDependencies() {
     }, 100);
 }
 
+// Function to check if theater mode is active
+function isTheaterMode() {
+    const player = document.querySelector('ytd-watch-flexy');
+    return player && player.hasAttribute('theater');
+}
+
+// Callback function for MutationObserver
+function mutationCallback(mutationsList) {
+    for (const mutation of mutationsList) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'theater') {
+            if (isTheaterMode()) {
+                console.log('Theater mode activated');
+
+                const playerContainer = document.querySelector('#ytd-player');
+                const ccDiv = document.querySelector("#citation-controls");
+                playerContainer.appendChild(ccDiv); // appendChild moves the existing element
+                ccDiv.style.position = 'absolute';
+                ccDiv.style.top = '30%'; // Position % relative to the top of the container; adjust as needed
+                ccDiv.style.right = '0';
+                ccDiv.style.zIndex = '999'; // High z-index so it floats above everything else
+            } else {
+                console.log('Theater mode deactivated');
+                
+                const ccDiv = document.querySelector("#citation-controls");
+                ccDiv.removeAttribute('style');
+                const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+                secondaryElement.insertBefore(ccDiv, secondaryElement.firstChild); // insertBefore moves the existing element
+            }
+        }
+    }
+}
+
+function observeTheaterMode() {
+    const observer = new MutationObserver(mutationCallback);
+
+    // Start observing the player element for attribute changes
+    const playerElement = document.querySelector('ytd-watch-flexy');
+    if (playerElement) {
+        observer.observe(playerElement, { attributes: true });
+    }
+}
+
 function init() {
     insertBelowTitle();
     insertCitationButtons();
     migrateCitationsToNewFormat();
     console.log("Extension initialized");
+    observeTheaterMode();
 }
 
 // Start initialization
