@@ -1,15 +1,21 @@
 // Wait for YouTube page to be ready
 window.respondWithCitation = function(start, end, reason) {
-    // Switch to Add Citation tab and load the form
-    document.getElementById('add-citation-btn').classList.add('active');
-    document.getElementById('request-citation-btn').classList.remove('active');
-    loadPage("youtube_extension_citation.html", "citation-container", () => {
-        // This callback runs after the form is loaded
+    // Switch to citations tab first
+    document.getElementById('citations-btn').click();
+    
+    // Show the add citation form by clicking the add button
+    const addItemBtn = document.getElementById('add-item-btn');
+    if (addItemBtn && document.getElementById('add-form-container').style.display === 'none') {
+        addItemBtn.click();
+    }
+    
+    // Load the citation form and populate it
+    loadPage("youtube_extension_citation.html", "add-form-container", () => {
         const form = document.getElementById('citation-form');
         if (form) {
             form.timestampStart.value = start;
             form.timestampEnd.value = end;
-            form.description.value = `Response to request: ${reason}`;
+            form.description.value = `Response to: ${reason}`;
             form.citationTitle.focus();
         }
     });
