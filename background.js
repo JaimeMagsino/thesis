@@ -77,12 +77,68 @@ function convertFromFirestore(firestoreDoc) {
     }, {});
 }
 
+// Helper function to migrate old data format to new
+async function migrateCitationData(videoId, docId, oldData) {
+    try {
+        // Create new data object with citationTitle instead of source
+        const newData = {
+            ...oldData,
+            citationTitle: oldData.source,
+        };
+        delete newData.source;  // Remove old field
+
+        // Update the document with new format
+        await firestoreRequest(`citations_${videoId}`, docId, 'PATCH', newData);
+        console.log('Successfully migrated citation:', docId);
+        return true;
+    } catch (error) {
+        console.error('Error migrating citation:', error);
+        return false;
+    }
+}
+
+// Migrate all citations in a collection from source to citationTitle
+async function migrateAllCitations(videoId) {
+    try {
+        console.log('Starting bulk migration for video:', videoId);
+        const result = await firestoreRequest(`citations_${videoId}`);
+        
+        if (!result.documents) {
+            console.log('No documents to migrate');
+            return { success: true, migratedCount: 0 };
+        }
+
+        let migratedCount = 0;
+        for (const doc of result.documents) {
+            const data = convertFromFirestore(doc);
+            const docId = doc.name.split('/').pop();
+            
+            if (data.source && !data.citationTitle) {
+                const newData = {
+                    ...data,
+                    citationTitle: data.source
+                };
+                delete newData.source;
+
+                await firestoreRequest(`citations_${videoId}`, docId, 'PATCH', newData);
+                migratedCount++;
+            }
+        }
+        
+        console.log(`Migration complete. Migrated ${migratedCount} documents`);
+        return { success: true, migratedCount };
+    } catch (error) {
+        console.error('Error during bulk migration:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Received message:', request);
     if (request.type === 'addCitation') {
         handleAddCitation(request.data).then(sendResponse);
-        return true; // Will respond asynchronously
+        return true;
     }
     if (request.type === 'getCitations') {
         handleGetCitations(request.videoId).then(sendResponse);
@@ -96,20 +152,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleGetRequests(request.videoId).then(sendResponse);
         return true;
     }
-	if (request.type === 'deleteCitation') {
-        handleDeleteCitation(request.videoId, request.docId).then(sendResponse);
-        return true;
-    }
-    if (request.type === 'deleteRequest') {
-        handleDeleteRequest(request.videoId, request.docId).then(sendResponse);
-        return true;
-    }
     if (request.type === 'updateCitationVotes') {
-        handleUpdateCitationVotes(request.videoId, request.citationId, request.votes, request.userVote).then(sendResponse);
+        handleUpdateCitationVotes(request.videoId, request.citationId, request.voteValue, request.userVote).then(sendResponse);
+        return true;
+    }
+    if (request.type === 'updateRequestVotes') {
+        handleUpdateRequestVotes(request.videoId, request.requestId, request.voteValue, request.userVote).then(sendResponse);
         return true;
     }
     if (request.type === 'getUserVotes') {
         handleGetUserVotes(request.videoId).then(sendResponse);
+        return true;
+    }
+    if (request.type === 'migrateAllCitations') {
+        migrateAllCitations(request.videoId).then(sendResponse);
         return true;
     }
 });
@@ -117,14 +173,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleAddCitation(data) {
     try {
         console.log('Adding citation:', data);
+        // Ensure we're using citationTitle instead of source
+        const { source, ...restData } = data;
         const citation = {
-            ...data,
+            ...restData,
+            citationTitle: data.citationTitle || data.source, // Handle both old and new format
             timestamp: new Date().toISOString(),
-            likes: 0,
-            dislikes: 0
+            voteScore: 0
         };
         
-        // Create a new document in the citations collection
         const result = await firestoreRequest(`citations_${data.videoId}`, null, 'POST', citation);
         const docId = result.name.split('/').pop();
         console.log('Citation added successfully:', docId);
@@ -141,14 +198,24 @@ async function handleGetCitations(videoId) {
         // List all documents in the video's citations collection
         const result = await firestoreRequest(`citations_${videoId}`);
         
-        // Convert Firestore documents to regular objects
-        const citations = result.documents ? result.documents.map(doc => {
+        // Convert Firestore documents to regular objects and handle migration
+        const citations = result.documents ? await Promise.all(result.documents.map(async doc => {
             const data = convertFromFirestore(doc);
+            const docId = doc.name.split('/').pop();
+
+            // Check if document needs migration (has 'source' instead of 'citationTitle')
+            if (data.source && !data.citationTitle) {
+                await migrateCitationData(videoId, docId, data);
+                // Update local data to use new field name
+                data.citationTitle = data.source;
+                delete data.source;
+            }
+
             return {
-                id: doc.name.split('/').pop(),
+                id: docId,
                 ...data
             };
-        }) : [];
+        })) : [];
 
         // Sort by timestamp descending
         citations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -164,12 +231,11 @@ async function handleGetCitations(videoId) {
 async function handleAddRequest(data) {
     try {
         console.log('Adding request:', data);
-        // Ensure we have a valid timestamp
         const request = {
             ...data,
-            timestamp: data.timestamp || new Date().toISOString()
+            voteScore: 0 // Initialize vote score
         };
-        console.log('Processed request data:', request);
+        
         const result = await firestoreRequest(`requests_${data.videoId}`, null, 'POST', request);
         const docId = result.name.split('/').pop();
         console.log('Request added successfully:', docId);
@@ -216,31 +282,9 @@ async function handleGetRequests(videoId) {
     }
 }
 
-async function handleDeleteCitation(videoId, docId) {
+async function handleUpdateCitationVotes(videoId, citationId, voteValue, userVote) {
     try {
-        console.log(`Deleting citation: ${docId} for video: ${videoId}`);
-        await firestoreRequest(`citations_${videoId}`, docId, 'DELETE');
-        return { success: true };
-    } catch (error) {
-        console.error('Error deleting citation:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-async function handleDeleteRequest(videoId, docId) {
-    try {
-        console.log(`Deleting request: ${docId} for video: ${videoId}`);
-        await firestoreRequest(`requests_${videoId}`, docId, 'DELETE');
-        return { success: true };
-    } catch (error) {
-        console.error('Error deleting request:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-async function handleUpdateCitationVotes(videoId, citationId, votes, userVote) {
-    try {
-        console.log('Updating citation votes:', { videoId, citationId, votes, userVote });
+        console.log('Updating citation votes:', { videoId, citationId, voteValue, userVote });
         
         // Get current citation data
         const citationRef = `citations_${videoId}/${citationId}`;
@@ -250,11 +294,10 @@ async function handleUpdateCitationVotes(videoId, citationId, votes, userVote) {
             throw new Error('Citation not found');
         }
 
-        // Update the votes
+        // Update the vote score
         const updatedData = {
             ...convertFromFirestore(citation),
-            likes: votes.likes,
-            dislikes: votes.dislikes
+            voteScore: voteValue
         };
 
         // Update the document
@@ -291,6 +334,47 @@ async function handleGetUserVotes(videoId) {
         return { success: true, votes: result };
     } catch (error) {
         console.error('Error getting user votes:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function handleUpdateRequestVotes(videoId, requestId, voteValue, userVote) {
+    try {
+        console.log('Updating request votes:', { videoId, requestId, voteValue, userVote });
+        
+        // Get current request data
+        const requestRef = `requests_${videoId}/${requestId}`;
+        const request = await firestoreRequest(`requests_${videoId}`, requestId, 'GET');
+        
+        if (!request) {
+            throw new Error('Request not found');
+        }
+
+        // Update the vote score
+        const updatedData = {
+            ...convertFromFirestore(request),
+            voteScore: voteValue
+        };
+
+        // Update the document
+        await firestoreRequest(`requests_${videoId}`, requestId, 'PATCH', updatedData);
+
+        // Store user's vote in chrome.storage.local
+        const storageKey = `request_votes_${videoId}`;
+        const existingVotes = await new Promise(resolve => {
+            chrome.storage.local.get(storageKey, (result) => {
+                resolve(result[storageKey] || {});
+            });
+        });
+
+        existingVotes[requestId] = userVote;
+        await new Promise(resolve => {
+            chrome.storage.local.set({ [storageKey]: existingVotes }, resolve);
+        });
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating request votes:', error);
         return { success: false, error: error.message };
     }
 }
