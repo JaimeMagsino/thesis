@@ -72,8 +72,100 @@ function observeTheaterMode() {
     }
 }
 
+function insertBelowTitle() {
+    // This function is no longer needed as we're removing the controls from below title
+    return;
+}
+
+function insertCitationButtons() {
+    const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+    if (!secondaryElement) {
+        console.log("Secondary element not found");
+        return;
+    }
+    
+    const citationControls = document.createElement("div");
+    citationControls.id = "citation-controls";
+    citationControls.className = "citation-controls";
+    
+    citationControls.innerHTML = `
+        <div class="button-container">
+            <button id="citation-requests-btn">Citation Requests</button>
+            <button id="citations-btn">Citations</button>
+        </div>
+        <div id="citation-title-container" class="header-container">
+            <h3 id="citation-title">Citations</h3>
+            <div class="header-actions">
+                <button id="add-item-btn" class="add-btn">+ Add Citation</button>
+                <select class="sort-select">
+                    <option value="upvotes">Most Upvoted</option>
+                    <option value="recent">Sort by Recent</option>
+                </select>
+            </div>
+        </div>
+        <div id="add-form-container" style="display: none;"></div>
+        <div id="citation-requests-container" class="requests-container"></div>
+        <div id="citations-container" class="citations-container"></div>
+    `;
+    
+    secondaryElement.prepend(citationControls);
+
+    // Add event listeners for tab switching
+    document.getElementById('citation-requests-btn').addEventListener('click', () => {
+        document.getElementById('citations-container').style.display = 'none';
+        document.getElementById('citation-requests-container').style.display = 'block';
+        document.getElementById('citation-title').textContent = 'Citation Requests';
+        document.getElementById('add-item-btn').textContent = '+ Add Request';
+        document.getElementById('add-form-container').style.display = 'none';
+        loadCitationRequests();
+    });
+
+    document.getElementById('citations-btn').addEventListener('click', () => {
+        document.getElementById('citation-requests-container').style.display = 'none';
+        document.getElementById('citations-container').style.display = 'block';
+        document.getElementById('citation-title').textContent = 'Citations';
+        document.getElementById('add-item-btn').textContent = '+ Add Citation';
+        document.getElementById('add-form-container').style.display = 'none';
+        loadCitations();
+    });
+
+    // Add event listener for add button
+    document.getElementById('add-item-btn').addEventListener('click', () => {
+        const formContainer = document.getElementById('add-form-container');
+        const isRequestsTab = document.getElementById('citation-requests-container').style.display === 'block';
+        
+        if (formContainer.style.display === 'none') {
+            formContainer.style.display = 'block';
+            if (isRequestsTab) {
+                loadPage("youtube_extension_request.html", "add-form-container");
+            } else {
+                loadPage("youtube_extension_citation.html", "add-form-container");
+            }
+        } else {
+            formContainer.style.display = 'none';
+        }
+    });
+
+    // Add event listener for sort options
+    document.querySelector('.sort-select').addEventListener('change', (e) => {
+        currentSortOption = e.target.value;
+        const citationsContainer = document.getElementById('citations-container');
+        const requestsContainer = document.getElementById('citation-requests-container');
+        
+        if (citationsContainer.style.display === 'block') {
+            loadCitations();
+        } else if (requestsContainer.style.display === 'block') {
+            loadCitationRequests();
+        }
+    });
+
+    // Load initial content
+    document.getElementById('citations-container').style.display = 'block';
+    document.getElementById('citation-requests-container').style.display = 'none';
+    loadCitations();
+}
+
 function init() {
-    insertBelowTitle();
     insertCitationButtons();
     migrateCitationsToNewFormat();
     console.log("Extension initialized");
@@ -82,53 +174,6 @@ function init() {
 
 // Start initialization
 waitForDependencies();
-
-function insertBelowTitle() {
-    const titleElement = document.querySelector("h1.style-scope.ytd-watch-metadata");
-    console.log("Attempting to insert below title");
-
-    if (!titleElement) {
-        console.log("Title element not found");
-        return;
-    }
-    if (document.getElementById("custom-extension-element")) {
-        console.log("Extension element already exists");
-        return;
-    }
-
-    const newElement = document.createElement("div");
-    newElement.id = "custom-extension-element";
-    newElement.className = "custom-extension-element";
-
-    newElement.innerHTML = `
-        <div class="header-container">
-            <h3>Citation Controls</h3>
-        </div>
-        <button id="add-citation-btn" class="tab-btn active">Add Citation</button>
-        <button id="request-citation-btn" class="tab-btn">Request for Citation</button>
-        
-        <div id="citation-container"></div>
-    `;
-
-    titleElement.parentNode.insertBefore(newElement, titleElement.nextSibling);
-    console.log("Extension element inserted");
-
-    // Load "Add Citation" by default
-    loadPage("youtube_extension_citation.html", "citation-container");
-
-    // Add event listeners for tab switching
-    document.getElementById('add-citation-btn').addEventListener('click', () => {
-        document.getElementById('add-citation-btn').classList.add('active');
-        document.getElementById('request-citation-btn').classList.remove('active');
-        loadPage("youtube_extension_citation.html", "citation-container");
-    });
-
-    document.getElementById('request-citation-btn').addEventListener('click', () => {
-        document.getElementById('add-citation-btn').classList.remove('active');
-        document.getElementById('request-citation-btn').classList.add('active');
-        loadPage("youtube_extension_request.html", "citation-container");
-    });
-}
 
 function loadPage(url, containerId, callback = null) {
     fetch(chrome.runtime.getURL(url))
@@ -347,80 +392,6 @@ async function handleRequestVote(requestId, voteType) {
         // Revert UI changes on error
         loadCitationRequests();
     }
-}
-
-function insertCitationButtons() {
-    const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
-    if (!secondaryElement) {
-        console.log("Secondary element not found");
-        return;
-    }
-    
-    const citationControls = document.createElement("div");
-    citationControls.id = "citation-controls";
-    citationControls.className = "citation-controls";
-    
-    citationControls.innerHTML = `
-        <div class="button-container">
-            <button id="citation-requests-btn">Citation Requests</button>
-            <button id="citations-btn">Citations</button>
-        </div>
-        <div id="citation-title-container" class="header-container">
-            <h3 id="citation-title">Citations</h3>
-        </div>
-        <div id="citation-requests-container" class="requests-container"></div>
-        <div id="citations-container" class="citations-container"></div>
-    `;
-    
-    secondaryElement.prepend(citationControls);
-
-    // Create and add sort select immediately
-    const titleContainer = document.getElementById('citation-title-container');
-    const sortSelect = createSortSelect();
-    titleContainer.appendChild(sortSelect);
-    sortSelect.value = currentSortOption;
-
-    // Add event listeners for tab switching
-    document.getElementById('citation-requests-btn').addEventListener('click', () => {
-        document.getElementById('citations-container').style.display = 'none';
-        document.getElementById('citation-requests-container').style.display = 'block';
-        document.getElementById('citation-title').textContent = 'Citation Requests';
-        loadCitationRequests();
-    });
-
-    document.getElementById('citations-btn').addEventListener('click', () => {
-        document.getElementById('citation-requests-container').style.display = 'none';
-        document.getElementById('citations-container').style.display = 'block';
-        document.getElementById('citation-title').textContent = 'Citations';
-        loadCitations();
-    });
-
-    // Add event listener for sort options
-    sortSelect.addEventListener('change', (e) => {
-        currentSortOption = e.target.value;
-        const citationsContainer = document.getElementById('citations-container');
-        const requestsContainer = document.getElementById('citation-requests-container');
-        
-        if (citationsContainer.style.display === 'block') {
-            loadCitations();
-        } else if (requestsContainer.style.display === 'block') {
-            loadCitationRequests();
-        }
-    });
-
-    // Load initial content
-    document.getElementById('citations-container').style.display = 'block';
-    loadCitations();
-}
-
-function createSortSelect() {
-    const sortSelect = document.createElement('select');
-    sortSelect.className = 'sort-select';
-    sortSelect.innerHTML = `
-        <option value="upvotes">Most Upvoted</option>
-        <option value="recent">Sort by Recent</option>
-    `;
-    return sortSelect;
 }
 
 async function loadCitationRequests() {
