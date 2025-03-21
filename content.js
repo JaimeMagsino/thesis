@@ -17,6 +17,7 @@ window.respondWithCitation = function(start, end, reason) {
             form.timestampEnd.value = end;
             form.description.value = `Response to: ${reason}`;
             form.citationTitle.focus();
+            initializeCitationForm();
         }
     });
 };
@@ -145,9 +146,13 @@ function insertCitationButtons() {
         if (formContainer.style.display === 'none') {
             formContainer.style.display = 'block';
             if (isRequestsTab) {
-                loadPage("youtube_extension_request.html", "add-form-container");
+                loadPage("youtube_extension_request.html", "add-form-container", () => {
+                    initializeRequestForm();
+                });
             } else {
-                loadPage("youtube_extension_citation.html", "add-form-container");
+                loadPage("youtube_extension_citation.html", "add-form-container", () => {
+                    initializeCitationForm();
+                });
             }
         } else {
             formContainer.style.display = 'none';
@@ -263,6 +268,7 @@ function showQuickTaskButtons(startTime, endTime) {
                 form.timestampEnd.value = endTime;
                 form.citationTitle.focus();
                 console.log('Citation form loaded with start:', startTime, 'and end:', endTime);
+                initializeCitationForm();
             } else {
                 console.error("Citation form not found!");
             }
@@ -313,9 +319,168 @@ function showQuickTaskButtons(startTime, endTime) {
 
 function init() {
     insertCitationButtons();
-    migrateCitationsToNewFormat();
-    console.log("Extension initialized");
     observeTheaterMode();
+    
+    // Initialize forms if they exist
+    const citationForm = document.getElementById('citation-form');
+    if (citationForm) {
+        initializeCitationForm();
+    }
+    const requestForm = document.getElementById('request-form');
+    if (requestForm) {
+        initializeRequestForm();
+    }
+}
+
+// Function to initialize citation form
+async function initializeCitationForm() {
+    console.log('Initializing citation form...');
+    await setupAnonymousCheckbox();
+    
+    // Re-check if the form exists after async operation
+    const form = document.getElementById('citation-form');
+    if (form) {
+        console.log('Setting up citation form listeners');
+        setupFormListeners();
+    } else {
+        console.log('Citation form not found after initialization');
+    }
+}
+
+// Function to initialize request form
+async function initializeRequestForm() {
+    console.log('Initializing request form...');
+    await setupAnonymousCheckbox();
+    
+    // Re-check if the form exists after async operation
+    const form = document.getElementById('request-form');
+    if (form) {
+        console.log('Setting up request form listeners');
+        setupFormListeners();
+    } else {
+        console.log('Request form not found after initialization');
+    }
+}
+
+// Function to get YouTube username
+async function getYouTubeUsername() {
+    try {
+        // Try to get the handle from ytd-topbar-menu-button-renderer which contains account info
+        const accountInfo = document.querySelector('ytd-topbar-menu-button-renderer');
+        if (!accountInfo) {
+            console.log('Account info element not found - user likely not logged in');
+            return null;
+        }
+
+        // Access YouTube's internal API through the element
+        if (accountInfo.__data && accountInfo.__data.data) {
+            const accountData = accountInfo.__data.data;
+            if (accountData.channelHandle) {
+                console.log('Found user handle from YouTube API:', accountData.channelHandle);
+                return accountData.channelHandle.startsWith('@') ? 
+                    accountData.channelHandle : 
+                    `@${accountData.channelHandle}`;
+            }
+        }
+
+        // Method 2: Try to get from the page without opening menu
+        const possibleElements = [
+            document.querySelector('ytd-guide-entry-renderer[line-end-style="handle"] #guide-entry-title'),
+            document.querySelector('yt-formatted-string#channel-handle'),
+            document.querySelector('[id="channel-handle"]')
+        ];
+
+        for (const element of possibleElements) {
+            if (element && element.textContent) {
+                const handle = element.textContent.trim();
+                if (handle.startsWith('@')) {
+                    console.log('Found user handle from page:', handle);
+                    return handle;
+                }
+            }
+        }
+
+        // Method 3 (Last Resort): Quick menu open/close
+        console.log('Attempting quick menu open to get handle...');
+        const avatarButton = document.querySelector('ytd-masthead button#avatar-btn');
+        if (!avatarButton) return null;
+
+        let foundHandle = null;
+        
+        try {
+            // Create a promise that will resolve when we find the handle
+            const handlePromise = new Promise((resolve) => {
+                let timeoutId;
+                
+                const observer = new MutationObserver((mutations, obs) => {
+                    const menuHandle = document.querySelector('ytd-active-account-header-renderer yt-formatted-string#channel-handle');
+                    if (menuHandle && menuHandle.textContent) {
+                        const handle = menuHandle.textContent.trim();
+                        if (handle.startsWith('@')) {
+                            clearTimeout(timeoutId);
+                            obs.disconnect();
+                            resolve(handle);
+                        }
+                    }
+                });
+
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: false,
+                    characterData: false
+                });
+
+                // Set a very short timeout
+                timeoutId = setTimeout(() => {
+                    observer.disconnect();
+                    resolve(null);
+                }, 300); // 300ms maximum wait
+
+                // Click to open
+                avatarButton.click();
+            });
+
+            foundHandle = await handlePromise;
+        } finally {
+            // Always ensure menu is closed, even if there was an error
+            const isMenuOpen = document.querySelector('ytd-popup-container tp-yt-iron-dropdown[focused]');
+            if (isMenuOpen) {
+                avatarButton.click();
+            }
+        }
+
+        if (foundHandle) {
+            console.log('Found user handle from quick menu open:', foundHandle);
+            return foundHandle;
+        }
+
+        console.log('Could not find user handle');
+        return null;
+    } catch (error) {
+        console.error('Error getting YouTube username:', error);
+        return null;
+    }
+}
+
+// Function to setup the anonymous checkbox visibility
+async function setupAnonymousCheckbox() {
+    const anonymousGroup = document.getElementById('anonymous-group');
+    if (!anonymousGroup) {
+        console.log('Anonymous checkbox group not found');
+        return;
+    }
+
+    const username = await getYouTubeUsername();
+    console.log('Username detection result:', username);
+    
+    if (username) {
+        console.log('Showing anonymous checkbox for logged-in user');
+        anonymousGroup.style.display = 'block';
+    } else {
+        console.log('Hiding anonymous checkbox for anonymous user');
+        anonymousGroup.style.display = 'none';
+    }
 }
 
 // Start initialization
@@ -360,13 +525,18 @@ async function setupFormListeners() {
             }
             
             try {
+                // Get username based on checkbox state
+                const username = await getYouTubeUsername();
+                const anonymousCheckbox = document.getElementById('anonymous');
+                const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
+                
                 const citationData = {
                     videoId,
                     citationTitle: form.citationTitle.value,
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     description: form.description.value,
-                    username: 'Anonymous', // Replace with actual user authentication
+                    username: isAnonymous ? 'Anonymous' : username,
                     dateAdded: new Date().toISOString()
                 };
                 
@@ -419,14 +589,19 @@ async function setupFormListeners() {
                 // Get current timestamp in ISO format
                 const currentTime = new Date().toISOString();
                 
+                // Get username based on checkbox state
+                const username = await getYouTubeUsername();
+                const anonymousCheckbox = document.getElementById('anonymous');
+                const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
+                
                 const requestData = {
                     videoId,
                     title: requestForm.title.value,
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     reason: requestForm.reason.value,
-                    username: 'Anonymous',
-                    timestamp: currentTime // Use consistent timestamp field name
+                    username: isAnonymous ? 'Anonymous' : username,
+                    timestamp: currentTime
                 };
 
                 console.log('Submitting request with data:', requestData);
@@ -808,74 +983,81 @@ function updateCitationsList(citations, container) {
     }
 
     const fragment = document.createDocumentFragment();
-    citations.forEach(citation => {
-        let citationElement;
-        
-        // Reuse existing element if available
-        if (existingElements.has(citation.id)) {
-            citationElement = existingElements.get(citation.id);
-            existingElements.delete(citation.id);
-        } else {
-            citationElement = document.createElement("div");
-            citationElement.className = "citation-item";
-        }
+    
+    if (citations.length === 0) {
+        const noCitations = document.createElement('p');
+        noCitations.textContent = 'No citations found for this video.';
+        fragment.appendChild(noCitations);
+    } else {
+        citations.forEach(citation => {
+            let citationElement;
+            
+            // Reuse existing element if available
+            if (existingElements.has(citation.id)) {
+                citationElement = existingElements.get(citation.id);
+                existingElements.delete(citation.id);
+            } else {
+                citationElement = document.createElement("div");
+                citationElement.className = "citation-item";
+            }
 
-        citationElement.dataset.start = parseTimestamp(citation.timestampStart);
-        citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
-        
-        const userVote = userVotes[citation.id] || null;
-        
-        citationElement.innerHTML = `
-            <p><strong>Title:</strong> ${citation.citationTitle}</p>
-            <p><strong>Time Range:</strong> 
-                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
-                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
-            </p>
-            <p><strong>Added by:</strong> ${citation.username}</p>
-            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-            }).format(new Date(citation.dateAdded))}</p>
-            <p>${citation.description}</p>
-            <div class="vote-controls" data-citation-id="${citation.id}">
-                <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
-                        title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                    <span class="vote-icon">▲</span>
-                </button>
-                <span class="vote-score">${citation.voteScore || 0}</span>
-                <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
-                        title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                    <span class="vote-icon">▼</span>
-                </button>
-            </div>
-        `;
+            citationElement.dataset.start = parseTimestamp(citation.timestampStart);
+            citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
+            
+            const userVote = userVotes[citation.id] || null;
+            
+            citationElement.innerHTML = `
+                <p><strong>Title:</strong> ${citation.citationTitle}</p>
+                <p><strong>Time Range:</strong> 
+                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
+                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
+                </p>
+                <p><strong>Added by:</strong> ${citation.username}</p>
+                <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).format(new Date(citation.dateAdded))}</p>
+                <p>${citation.description}</p>
+                <div class="vote-controls" data-citation-id="${citation.id}">
+                    <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
+                            title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                        <span class="vote-icon">▲</span>
+                    </button>
+                    <span class="vote-score">${citation.voteScore || 0}</span>
+                    <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
+                            title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                        <span class="vote-icon">▼</span>
+                    </button>
+                </div>
+            `;
 
-        // Re-add event listeners
-        const voteControls = citationElement.querySelector('.vote-controls');
-        const upvoteBtn = voteControls.querySelector('.upvote-btn');
-        const downvoteBtn = voteControls.querySelector('.downvote-btn');
+            // Re-add event listeners
+            const voteControls = citationElement.querySelector('.vote-controls');
+            const upvoteBtn = voteControls.querySelector('.upvote-btn');
+            const downvoteBtn = voteControls.querySelector('.downvote-btn');
 
-        upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
-        downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
-        
-        // Add click handlers for timestamp links
-        citationElement.querySelectorAll('.timestamp-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const time = parseInt(e.target.dataset.time);
-                if (player && !isNaN(time)) {
-                    player.currentTime = time;
-                    player.play();
-                }
+            upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
+            downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
+            
+            // Add click handlers for timestamp links
+            citationElement.querySelectorAll('.timestamp-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const time = parseInt(e.target.dataset.time);
+                    if (player && !isNaN(time)) {
+                        player.currentTime = time;
+                        player.play();
+                    }
+                });
             });
-        });
 
-        fragment.appendChild(citationElement);
-    });
+            fragment.appendChild(citationElement);
+        });
+    }
 
     // Remove any remaining old elements
     existingElements.forEach(element => element.remove());
