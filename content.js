@@ -94,6 +94,7 @@ function insertCitationButtons() {
     citationControls.id = "citation-controls";
     citationControls.className = "citation-controls";
     
+    // Updated innerHTML: we now add the record button alongside the add button
     citationControls.innerHTML = `
         <div class="button-container">
             <button id="citation-requests-btn">Citation Requests</button>
@@ -101,8 +102,9 @@ function insertCitationButtons() {
         </div>
         <div id="citation-title-container" class="header-container">
             <h3 id="citation-title">Citations</h3>
+            <button id="add-item-btn" class="add-btn">+ Add Citation</button>
+            <button id="record-btn" class="action-btn">Start Record</button>
             <div class="header-actions">
-                <button id="add-item-btn" class="add-btn">+ Add Citation</button>
                 <select class="sort-select">
                     <option value="upvotes">Most Upvoted</option>
                     <option value="recent">Sort by Recent</option>
@@ -169,6 +171,144 @@ function insertCitationButtons() {
     document.getElementById('citations-container').style.display = 'block';
     document.getElementById('citation-requests-container').style.display = 'none';
     loadCitations();
+
+    // Initialize the record button functionality
+    setupRecordButton();
+}
+
+// Setup Record Button to toggle recording and capture timestamps
+function setupRecordButton() {
+    const recordBtn = document.getElementById('record-btn');
+    if (!recordBtn) return;
+    
+    let isRecording = false;
+    let recordStartTime = null;
+    
+    recordBtn.addEventListener('click', () => {
+        if (!isRecording) {
+            // Start recording: capture the current video time as start timestamp
+            isRecording = true;
+            const currentTimeSec = Math.floor(player.currentTime);
+            recordStartTime = formatTime(currentTimeSec);
+            console.log('Recording started at:', recordStartTime);
+            recordBtn.textContent = 'End Record';
+        } else {
+            // End recording: capture the current video time as end timestamp
+            const recordEndTime = formatTime(Math.floor(player.currentTime));
+            isRecording = false;
+            recordBtn.textContent = 'Start Record';
+            console.log('Recording ended at:', recordEndTime);
+            // Display the quick task buttons with the recorded timestamps
+            showQuickTaskButtons(recordStartTime, recordEndTime);
+        }
+    });
+}
+
+// Utility function to format seconds into HH:MM:SS
+function formatTime(seconds) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return [hrs, mins, secs]
+      .map(v => v < 10 ? "0" + v : v)
+      .join(":");
+}
+
+// Function to show quick-action buttons for Citation and Request tasks
+function showQuickTaskButtons(startTime, endTime) {
+    // Create or clear a container for the quick task buttons
+    let quickTaskContainer = document.getElementById('quick-task-container');
+    if (!quickTaskContainer) {
+        quickTaskContainer = document.createElement('div');
+        quickTaskContainer.id = 'quick-task-container';
+        quickTaskContainer.style.marginTop = '10px';
+        // Append the container to the citation controls container
+        const citationControls = document.getElementById('citation-controls');
+        if (citationControls) {
+            citationControls.appendChild(quickTaskContainer);
+        } else {
+            console.error('Citation controls container not found!');
+            return;
+        }
+    } else {
+        quickTaskContainer.innerHTML = '';
+    }
+    
+    // Create the Citation quick task button
+    const citationQuickBtn = document.createElement('button');
+    citationQuickBtn.textContent = 'Citation';
+    citationQuickBtn.className = 'action-btn';
+    citationQuickBtn.addEventListener('click', () => {
+        // Switch to the Citation tab by simulating a click
+        const citationsTab = document.getElementById('citations-btn');
+        if (citationsTab) {
+            citationsTab.click();
+        } else {
+            console.error('Citations tab button not found!');
+        }
+        
+        // Ensure the form container is visible
+        const formContainer = document.getElementById('add-form-container');
+        if (formContainer) {
+            formContainer.style.display = 'block';
+        } else {
+            console.error('Form container not found!');
+        }
+        
+        // Load the citation form and pre-fill the timestamps
+        loadPage("youtube_extension_citation.html", "add-form-container", () => {
+            const form = document.getElementById('citation-form');
+            if (form) {
+                form.timestampStart.value = startTime;
+                form.timestampEnd.value = endTime;
+                form.citationTitle.focus();
+                console.log('Citation form loaded with start:', startTime, 'and end:', endTime);
+            } else {
+                console.error("Citation form not found!");
+            }
+        });
+        quickTaskContainer.innerHTML = '';
+    });
+    
+    // Create the Request quick task button
+    const requestQuickBtn = document.createElement('button');
+    requestQuickBtn.textContent = 'Request';
+    requestQuickBtn.className = 'action-btn';
+    requestQuickBtn.addEventListener('click', () => {
+        // Switch to the Citation Requests tab by simulating a click
+        const requestsTab = document.getElementById('citation-requests-btn');
+        if (requestsTab) {
+            requestsTab.click();
+        } else {
+            console.error('Citation Requests tab button not found!');
+        }
+        
+        // Ensure the form container is visible
+        const formContainer = document.getElementById('add-form-container');
+        if (formContainer) {
+            formContainer.style.display = 'block';
+        } else {
+            console.error('Form container not found!');
+        }
+        
+        // Load the request form and pre-fill the timestamps
+        loadPage("youtube_extension_request.html", "add-form-container", () => {
+            const form = document.getElementById('request-form');
+            if (form) {
+                form.timestampStart.value = startTime;
+                form.timestampEnd.value = endTime;
+                form.reason.focus();
+                console.log('Request form loaded with start:', startTime, 'and end:', endTime);
+            } else {
+                console.error("Request form not found!");
+            }
+        });
+        quickTaskContainer.innerHTML = '';
+    });
+    
+    // Append both buttons to the quick task container
+    quickTaskContainer.appendChild(citationQuickBtn);
+    quickTaskContainer.appendChild(requestQuickBtn);
 }
 
 function init() {
