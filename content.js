@@ -421,6 +421,7 @@ async function setupFormListeners() {
                 
                 const requestData = {
                     videoId,
+                    title: requestForm.title.value,
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     reason: requestForm.reason.value,
@@ -912,6 +913,7 @@ function updateRequestsList(requests, container) {
 
             requestElement.innerHTML = `
                 <div class="request-content">
+                    <h3 class="request-title">${request.title || 'Untitled Request'}</h3>
                     <strong>Time Range:</strong>
                     <span class="time-range">
                         <a href="#" class="timestamp-link" data-time="${start}">${request.timestampStart}</a>
