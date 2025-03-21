@@ -1,40 +1,25 @@
-let quickRecordState = {
-    start: null,
-    end: null
-};
-
 // Wait for YouTube page to be ready
 window.respondWithCitation = function(start, end, reason) {
-    // Switch to Add Citation tab and load the form
-    document.getElementById('add-citation-btn').classList.add('active');
-    document.getElementById('request-citation-btn').classList.remove('active');
-    loadPage("youtube_extension_citation.html", "citation-container", () => {
-        // This callback runs after the form is loaded
+    // Switch to citations tab first
+    document.getElementById('citations-btn').click();
+    
+    // Show the add citation form by clicking the add button
+    const addItemBtn = document.getElementById('add-item-btn');
+    if (addItemBtn && document.getElementById('add-form-container').style.display === 'none') {
+        addItemBtn.click();
+    }
+    
+    // Load the citation form and populate it
+    loadPage("youtube_extension_citation.html", "add-form-container", () => {
         const form = document.getElementById('citation-form');
         if (form) {
             form.timestampStart.value = start;
             form.timestampEnd.value = end;
-            form.description.value = `Response to request: ${reason}`;
+            form.description.value = `Response to: ${reason}`;
             form.citationTitle.focus();
         }
     });
 };
-
-window.respondWithCitationRequest = function(start, end, reason) {
-    // Switch to Request Citation tab and load the request form
-    document.getElementById('request-citation-btn').classList.add('active');
-    document.getElementById('add-citation-btn').classList.remove('active');
-    loadPage("youtube_extension_request.html", "citation-container", () => {
-        const form = document.getElementById('request-form');
-        if (form) {
-            form.timestampStart.value = start;
-            form.timestampEnd.value = end;
-            form.reason.value = reason;
-            form.focus(); // Focus on the form so the user can enter details
-        }
-    });
-};
-
 
 function waitForDependencies() {
     const checkPage = setInterval(() => {
@@ -93,8 +78,240 @@ function observeTheaterMode() {
     }
 }
 
+function insertBelowTitle() {
+    // This function is no longer needed as we're removing the controls from below title
+    return;
+}
+
+function insertCitationButtons() {
+    const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+    if (!secondaryElement) {
+        console.log("Secondary element not found");
+        return;
+    }
+    
+    const citationControls = document.createElement("div");
+    citationControls.id = "citation-controls";
+    citationControls.className = "citation-controls";
+    
+    // Updated innerHTML: we now add the record button alongside the add button
+    citationControls.innerHTML = `
+        <div class="button-container">
+            <button id="citation-requests-btn">Citation Requests</button>
+            <button id="citations-btn">Citations</button>
+        </div>
+        <div id="citation-title-container" class="header-container">
+            <h3 id="citation-title">Citations</h3>
+            <button id="add-item-btn" class="add-btn">+ Add Citation</button>
+            <button id="record-btn" class="action-btn">Start Record</button>
+            <div class="header-actions">
+                <select class="sort-select">
+                    <option value="upvotes">Most Upvoted</option>
+                    <option value="recent">Sort by Recent</option>
+                </select>
+            </div>
+        </div>
+        <div id="add-form-container" style="display: none;"></div>
+        <div id="citation-requests-container" class="requests-container"></div>
+        <div id="citations-container" class="citations-container"></div>
+    `;
+    
+    secondaryElement.prepend(citationControls);
+
+    // Add event listeners for tab switching
+    document.getElementById('citation-requests-btn').addEventListener('click', () => {
+        document.getElementById('citations-container').style.display = 'none';
+        document.getElementById('citation-requests-container').style.display = 'block';
+        document.getElementById('citation-title').textContent = 'Citation Requests';
+        document.getElementById('add-item-btn').textContent = '+ Add Request';
+        document.getElementById('add-form-container').style.display = 'none';
+        loadCitationRequests();
+    });
+
+    document.getElementById('citations-btn').addEventListener('click', () => {
+        document.getElementById('citation-requests-container').style.display = 'none';
+        document.getElementById('citations-container').style.display = 'block';
+        document.getElementById('citation-title').textContent = 'Citations';
+        document.getElementById('add-item-btn').textContent = '+ Add Citation';
+        document.getElementById('add-form-container').style.display = 'none';
+        loadCitations();
+    });
+
+    // Add event listener for add button
+    document.getElementById('add-item-btn').addEventListener('click', () => {
+        const formContainer = document.getElementById('add-form-container');
+        const isRequestsTab = document.getElementById('citation-requests-container').style.display === 'block';
+        
+        if (formContainer.style.display === 'none') {
+            formContainer.style.display = 'block';
+            if (isRequestsTab) {
+                loadPage("youtube_extension_request.html", "add-form-container");
+            } else {
+                loadPage("youtube_extension_citation.html", "add-form-container");
+            }
+        } else {
+            formContainer.style.display = 'none';
+        }
+    });
+
+    // Add event listener for sort options
+    document.querySelector('.sort-select').addEventListener('change', (e) => {
+        currentSortOption = e.target.value;
+        const citationsContainer = document.getElementById('citations-container');
+        const requestsContainer = document.getElementById('citation-requests-container');
+        
+        if (citationsContainer.style.display === 'block') {
+            loadCitations();
+        } else if (requestsContainer.style.display === 'block') {
+            loadCitationRequests();
+        }
+    });
+
+    // Load initial content
+    document.getElementById('citations-container').style.display = 'block';
+    document.getElementById('citation-requests-container').style.display = 'none';
+    loadCitations();
+
+    // Initialize the record button functionality
+    setupRecordButton();
+}
+
+// Setup Record Button to toggle recording and capture timestamps
+function setupRecordButton() {
+    const recordBtn = document.getElementById('record-btn');
+    if (!recordBtn) return;
+    
+    let isRecording = false;
+    let recordStartTime = null;
+    
+    recordBtn.addEventListener('click', () => {
+        if (!isRecording) {
+            // Start recording: capture the current video time as start timestamp
+            isRecording = true;
+            const currentTimeSec = Math.floor(player.currentTime);
+            recordStartTime = formatTime(currentTimeSec);
+            console.log('Recording started at:', recordStartTime);
+            recordBtn.textContent = 'End Record';
+        } else {
+            // End recording: capture the current video time as end timestamp
+            const recordEndTime = formatTime(Math.floor(player.currentTime));
+            isRecording = false;
+            recordBtn.textContent = 'Start Record';
+            console.log('Recording ended at:', recordEndTime);
+            // Display the quick task buttons with the recorded timestamps
+            showQuickTaskButtons(recordStartTime, recordEndTime);
+        }
+    });
+}
+
+// Utility function to format seconds into HH:MM:SS
+function formatTime(seconds) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return [hrs, mins, secs]
+      .map(v => v < 10 ? "0" + v : v)
+      .join(":");
+}
+
+// Function to show quick-action buttons for Citation and Request tasks
+function showQuickTaskButtons(startTime, endTime) {
+    // Create or clear a container for the quick task buttons
+    let quickTaskContainer = document.getElementById('quick-task-container');
+    if (!quickTaskContainer) {
+        quickTaskContainer = document.createElement('div');
+        quickTaskContainer.id = 'quick-task-container';
+        quickTaskContainer.style.marginTop = '10px';
+        // Append the container to the citation controls container
+        const citationControls = document.getElementById('citation-controls');
+        if (citationControls) {
+            citationControls.appendChild(quickTaskContainer);
+        } else {
+            console.error('Citation controls container not found!');
+            return;
+        }
+    } else {
+        quickTaskContainer.innerHTML = '';
+    }
+    
+    // Create the Citation quick task button
+    const citationQuickBtn = document.createElement('button');
+    citationQuickBtn.textContent = 'Citation';
+    citationQuickBtn.className = 'action-btn';
+    citationQuickBtn.addEventListener('click', () => {
+        // Switch to the Citation tab by simulating a click
+        const citationsTab = document.getElementById('citations-btn');
+        if (citationsTab) {
+            citationsTab.click();
+        } else {
+            console.error('Citations tab button not found!');
+        }
+        
+        // Ensure the form container is visible
+        const formContainer = document.getElementById('add-form-container');
+        if (formContainer) {
+            formContainer.style.display = 'block';
+        } else {
+            console.error('Form container not found!');
+        }
+        
+        // Load the citation form and pre-fill the timestamps
+        loadPage("youtube_extension_citation.html", "add-form-container", () => {
+            const form = document.getElementById('citation-form');
+            if (form) {
+                form.timestampStart.value = startTime;
+                form.timestampEnd.value = endTime;
+                form.citationTitle.focus();
+                console.log('Citation form loaded with start:', startTime, 'and end:', endTime);
+            } else {
+                console.error("Citation form not found!");
+            }
+        });
+        quickTaskContainer.innerHTML = '';
+    });
+    
+    // Create the Request quick task button
+    const requestQuickBtn = document.createElement('button');
+    requestQuickBtn.textContent = 'Request';
+    requestQuickBtn.className = 'action-btn';
+    requestQuickBtn.addEventListener('click', () => {
+        // Switch to the Citation Requests tab by simulating a click
+        const requestsTab = document.getElementById('citation-requests-btn');
+        if (requestsTab) {
+            requestsTab.click();
+        } else {
+            console.error('Citation Requests tab button not found!');
+        }
+        
+        // Ensure the form container is visible
+        const formContainer = document.getElementById('add-form-container');
+        if (formContainer) {
+            formContainer.style.display = 'block';
+        } else {
+            console.error('Form container not found!');
+        }
+        
+        // Load the request form and pre-fill the timestamps
+        loadPage("youtube_extension_request.html", "add-form-container", () => {
+            const form = document.getElementById('request-form');
+            if (form) {
+                form.timestampStart.value = startTime;
+                form.timestampEnd.value = endTime;
+                form.reason.focus();
+                console.log('Request form loaded with start:', startTime, 'and end:', endTime);
+            } else {
+                console.error("Request form not found!");
+            }
+        });
+        quickTaskContainer.innerHTML = '';
+    });
+    
+    // Append both buttons to the quick task container
+    quickTaskContainer.appendChild(citationQuickBtn);
+    quickTaskContainer.appendChild(requestQuickBtn);
+}
+
 function init() {
-    insertBelowTitle();
     insertCitationButtons();
     migrateCitationsToNewFormat();
     console.log("Extension initialized");
@@ -103,164 +320,6 @@ function init() {
 
 // Start initialization
 waitForDependencies();
-
-// Helper function to display a custom modal dialog for quick record choice
-function showQuickRecordChoiceDialog() {
-    return new Promise((resolve) => {
-        // Create overlay div
-        const overlay = document.createElement('div');
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.right = '0';
-        overlay.style.bottom = '0';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        overlay.style.display = 'flex';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.zIndex = '9999';
-
-        // Create dialog div
-        const dialog = document.createElement('div');
-        dialog.style.backgroundColor = 'white';
-        dialog.style.padding = '20px';
-        dialog.style.borderRadius = '5px';
-        dialog.style.textAlign = 'center';
-        dialog.innerHTML = `<p>Choose an action:</p>`;
-
-        // Create buttons
-        const citationBtn = document.createElement('button');
-        citationBtn.textContent = 'Citation';
-        citationBtn.style.marginRight = '10px';
-
-        const requestBtn = document.createElement('button');
-        requestBtn.textContent = 'Request';
-
-        // Append buttons to dialog, then dialog to overlay
-        dialog.appendChild(citationBtn);
-        dialog.appendChild(requestBtn);
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        // Event listeners for buttons
-        citationBtn.addEventListener('click', () => {
-            document.body.removeChild(overlay);
-            resolve('citation');
-        });
-        requestBtn.addEventListener('click', () => {
-            document.body.removeChild(overlay);
-            resolve('request');
-        });
-    });
-}
-
-function insertBelowTitle() {
-    const titleElement = document.querySelector("h1.style-scope.ytd-watch-metadata");
-    console.log("Attempting to insert below title");
-
-    if (!titleElement) {
-        console.log("Title element not found");
-        return;
-    }
-    // If the custom extension element already exists, we could optionally update it
-    // or reattach the quick-record event listener.
-    let customElement = document.getElementById("custom-extension-element");
-    if (!customElement) {
-        customElement = document.createElement("div");
-        customElement.id = "custom-extension-element";
-        customElement.className = "custom-extension-element";
-
-        customElement.innerHTML = `
-            <div class="header-container">
-                <h3>Citation Controls</h3>
-            </div>
-            <button id="add-citation-btn" class="tab-btn active">Add Citation</button>
-            <button id="request-citation-btn" class="tab-btn">Request for Citation</button>
-            <button id="quick-record-btn" class="tab-btn">Record Citation</button>
-            <div id="citation-container"></div>
-        `;
-        titleElement.parentNode.insertBefore(customElement, titleElement.nextSibling);
-        console.log("Extension element inserted");
-    }
-    
-    // Attach event listeners
-    const addCitationBtn = document.getElementById('add-citation-btn');
-    const requestCitationBtn = document.getElementById('request-citation-btn');
-    const quickRecordBtn = document.getElementById('quick-record-btn');
-
-    if (addCitationBtn) {
-        addCitationBtn.addEventListener('click', () => {
-            addCitationBtn.classList.add('active');
-            requestCitationBtn.classList.remove('active');
-            loadPage("youtube_extension_citation.html", "citation-container");
-        });
-    }
-    
-    if (requestCitationBtn) {
-        requestCitationBtn.addEventListener('click', () => {
-            addCitationBtn.classList.remove('active');
-            requestCitationBtn.classList.add('active');
-            loadPage("youtube_extension_request.html", "citation-container");
-        });
-    }
-    
-    // Safely attach the Quick Record button listener
-    if (quickRecordBtn) {
-        quickRecordBtn.addEventListener('click', async () => {
-            // Ensure the video player is available
-            if (!player) {
-                alert("Video player not found.");
-                return;
-            }
-            const currentTimeSec = Math.floor(player.currentTime);
-            const formattedTime = formatTimestamp(currentTimeSec);
-
-            // If no start is recorded, record start timestamp
-            if (quickRecordState.start === null) {
-                quickRecordState.start = formattedTime;
-                quickRecordBtn.textContent = `Start Recorded: ${formattedTime} – Click again to record end`;
-            } else {
-                // Record end timestamp
-                quickRecordState.end = formattedTime;
-                // Validate: end must be later than start
-                if (timeToSeconds(quickRecordState.end) <= timeToSeconds(quickRecordState.start)) {
-                    alert("End time must be later than start time. Please try again.");
-                    quickRecordState.end = null;
-                    return;
-                }
-                
-                // Show custom dialog for choice
-                const choice = await showQuickRecordChoiceDialog();
-                if (choice === 'citation') {
-                    window.respondWithCitation(quickRecordState.start, quickRecordState.end, "");
-                } else if (choice === 'request') {
-                    window.respondWithCitationRequest(quickRecordState.start, quickRecordState.end, "");
-                }
-                
-                // Reset state and button text
-                quickRecordState = { start: null, end: null };
-                quickRecordBtn.textContent = "Quick Record Citation";
-            }
-        });
-    } else {
-        console.error("Quick Record button not found!");
-    }
-}
-
-// Convert seconds to HH:MM:SS
-function formatTimestamp(totalSeconds) {
-    const pad = (num) => num.toString().padStart(2, '0');
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-}
-
-// Convert HH:MM:SS to seconds
-function timeToSeconds(timeStr) {
-    return timeStr.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-}
-
 
 function loadPage(url, containerId, callback = null) {
     fetch(chrome.runtime.getURL(url))
@@ -479,80 +538,6 @@ async function handleRequestVote(requestId, voteType) {
         // Revert UI changes on error
         loadCitationRequests();
     }
-}
-
-function insertCitationButtons() {
-    const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
-    if (!secondaryElement) {
-        console.log("Secondary element not found");
-        return;
-    }
-    
-    const citationControls = document.createElement("div");
-    citationControls.id = "citation-controls";
-    citationControls.className = "citation-controls";
-    
-    citationControls.innerHTML = `
-        <div class="button-container">
-            <button id="citation-requests-btn">Citation Requests</button>
-            <button id="citations-btn">Citations</button>
-        </div>
-        <div id="citation-title-container" class="header-container">
-            <h3 id="citation-title">Citations</h3>
-        </div>
-        <div id="citation-requests-container" class="requests-container"></div>
-        <div id="citations-container" class="citations-container"></div>
-    `;
-    
-    secondaryElement.prepend(citationControls);
-
-    // Create and add sort select immediately
-    const titleContainer = document.getElementById('citation-title-container');
-    const sortSelect = createSortSelect();
-    titleContainer.appendChild(sortSelect);
-    sortSelect.value = currentSortOption;
-
-    // Add event listeners for tab switching
-    document.getElementById('citation-requests-btn').addEventListener('click', () => {
-        document.getElementById('citations-container').style.display = 'none';
-        document.getElementById('citation-requests-container').style.display = 'block';
-        document.getElementById('citation-title').textContent = 'Citation Requests';
-        loadCitationRequests();
-    });
-
-    document.getElementById('citations-btn').addEventListener('click', () => {
-        document.getElementById('citation-requests-container').style.display = 'none';
-        document.getElementById('citations-container').style.display = 'block';
-        document.getElementById('citation-title').textContent = 'Citations';
-        loadCitations();
-    });
-
-    // Add event listener for sort options
-    sortSelect.addEventListener('change', (e) => {
-        currentSortOption = e.target.value;
-        const citationsContainer = document.getElementById('citations-container');
-        const requestsContainer = document.getElementById('citation-requests-container');
-        
-        if (citationsContainer.style.display === 'block') {
-            loadCitations();
-        } else if (requestsContainer.style.display === 'block') {
-            loadCitationRequests();
-        }
-    });
-
-    // Load initial content
-    document.getElementById('citations-container').style.display = 'block';
-    loadCitations();
-}
-
-function createSortSelect() {
-    const sortSelect = document.createElement('select');
-    sortSelect.className = 'sort-select';
-    sortSelect.innerHTML = `
-        <option value="upvotes">Most Upvoted</option>
-        <option value="recent">Sort by Recent</option>
-    `;
-    return sortSelect;
 }
 
 async function loadCitationRequests() {
@@ -1046,8 +1031,6 @@ function updateHighlighting() {
         }
     }
 }
-
-
 
 // Debounce function to limit the frequency of updates
 function debounce(func, wait) {
