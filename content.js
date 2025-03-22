@@ -54,7 +54,7 @@ function mutationCallback(mutationsList) {
                 const ccDiv = document.querySelector("#citation-controls");
                 playerContainer.appendChild(ccDiv); // appendChild moves the existing element
                 ccDiv.style.position = 'absolute';
-                ccDiv.style.top = '30%'; // Position % relative to the top of the container; adjust as needed
+                ccDiv.style.top = '10%'; // Position % relative to the top of the container; adjust as needed
                 ccDiv.style.right = '0';
                 ccDiv.style.zIndex = '999'; // High z-index so it floats above everything else
             } else {
@@ -95,50 +95,82 @@ function insertCitationButtons() {
     citationControls.id = "citation-controls";
     citationControls.className = "citation-controls";
     
-    // Updated innerHTML: we now add the record button alongside the add button
     citationControls.innerHTML = `
         <div class="button-container">
             <button id="citation-requests-btn">Citation Requests</button>
             <button id="citations-btn">Citations</button>
         </div>
         <div id="citation-title-container" class="header-container">
-            <h3 id="citation-title">Citations</h3>
+            <h3 id="citation-title" class="section-title">Citations</h3>
+        </div>
+        <div class="header-actions">
             <button id="add-item-btn" class="add-btn">+ Add Citation</button>
             <button id="record-btn" class="action-btn">Start Record</button>
-            <div class="header-actions">
-                <select class="sort-select">
-                    <option value="upvotes">Most Upvoted</option>
-                    <option value="recent">Sort by Recent</option>
-                </select>
+            <div class="sort-container">
+                <button class="sort-button">
+                    <span class="sort-icon">
+                        <svg viewBox="0 0 24 24" width="24" height="24">
+                        <path d="M21,6H3V5h18V6z M15,11H3v1h12V11z M9,17H3v1h6V17z" fill="currentColor"></path>
+                    </svg>
+                    </span>
+                    <span class="sort-text">Sort by</span>
+                    <span class="sort-caret">
+                        <svg viewBox="0 0 24 24" width="24" height="24">
+                            <path d="M7 10l5 5 5-5z" fill="currentColor"></path>
+                        </svg>
+                    </span>
+                </button>
+                <div class="sort-menu" style="display: none;">
+                    <button class="sort-menu-item" data-value="upvotes">
+                        <span class="sort-menu-text">Most Upvoted</span>
+                        <span class="sort-check">✓</span>
+                    </button>
+                    <button class="sort-menu-item" data-value="recent">
+                        <span class="sort-menu-text">Newest first</span>
+                    </button>
+                </div>
             </div>
         </div>
         <div id="add-form-container" style="display: none;"></div>
-        <div id="citation-requests-container" class="requests-container"></div>
-        <div id="citations-container" class="citations-container"></div>
+        <div id="citations-container"></div>
+        <div id="citation-requests-container"></div>
     `;
     
     secondaryElement.prepend(citationControls);
 
-    // Add event listeners for tab switching
-    document.getElementById('citation-requests-btn').addEventListener('click', () => {
+    // Set initial state and load citations
+    const citationsBtn = document.getElementById('citations-btn');
+    citationsBtn.classList.add('active');
+    document.getElementById('citations-container').style.display = 'block';
+    document.getElementById('citation-requests-container').style.display = 'none';
+    loadCitations(); // Load citations immediately
+
+    // Add event listeners for tab buttons
+    document.getElementById('citation-requests-btn').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('citations-btn').classList.remove('active');
+        document.getElementById('citation-title').textContent = 'Citation Requests';
         document.getElementById('citations-container').style.display = 'none';
         document.getElementById('citation-requests-container').style.display = 'block';
-        document.getElementById('citation-title').textContent = 'Citation Requests';
         document.getElementById('add-item-btn').textContent = '+ Add Request';
+        // Close form when switching tabs
         document.getElementById('add-form-container').style.display = 'none';
         loadCitationRequests();
     });
 
-    document.getElementById('citations-btn').addEventListener('click', () => {
-        document.getElementById('citation-requests-container').style.display = 'none';
-        document.getElementById('citations-container').style.display = 'block';
+    document.getElementById('citations-btn').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('citation-requests-btn').classList.remove('active');
         document.getElementById('citation-title').textContent = 'Citations';
+        document.getElementById('citations-container').style.display = 'block';
+        document.getElementById('citation-requests-container').style.display = 'none';
         document.getElementById('add-item-btn').textContent = '+ Add Citation';
+        // Close form when switching tabs
         document.getElementById('add-form-container').style.display = 'none';
         loadCitations();
     });
 
-    // Add event listener for add button
+    // Add event listeners for add button
     document.getElementById('add-item-btn').addEventListener('click', () => {
         const formContainer = document.getElementById('add-form-container');
         const isRequestsTab = document.getElementById('citation-requests-container').style.display === 'block';
@@ -159,23 +191,47 @@ function insertCitationButtons() {
         }
     });
 
-    // Add event listener for sort options
-    document.querySelector('.sort-select').addEventListener('change', (e) => {
-        currentSortOption = e.target.value;
-        const citationsContainer = document.getElementById('citations-container');
-        const requestsContainer = document.getElementById('citation-requests-container');
-        
-        if (citationsContainer.style.display === 'block') {
-            loadCitations();
-        } else if (requestsContainer.style.display === 'block') {
-            loadCitationRequests();
+    // Handle sort button click
+    const sortButton = document.querySelector('.sort-button');
+    const sortMenu = document.querySelector('.sort-menu');
+    sortButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = sortMenu.style.display === 'block';
+        sortMenu.style.display = isVisible ? 'none' : 'block';
+        sortButton.classList.toggle('active');
+    });
+
+    // Handle sort menu item clicks
+    sortMenu.addEventListener('click', (e) => {
+        const menuItem = e.target.closest('.sort-menu-item');
+        if (menuItem) {
+            const value = menuItem.dataset.value;
+            currentSortOption = value;
+            sortMenu.querySelectorAll('.sort-menu-item').forEach(item => {
+                item.innerHTML = `
+                    <span class="sort-menu-text">${item.dataset.value === 'upvotes' ? 'Most Upvoted' : 'Newest first'}</span>
+                    ${item.dataset.value === value ? '<span class="sort-check">✓</span>' : ''}
+                `;
+            });
+            sortMenu.style.display = 'none';
+            sortButton.classList.remove('active');
+            const citationsContainer = document.getElementById('citations-container');
+            const requestsContainer = document.getElementById('citation-requests-container');
+            if (citationsContainer.style.display === 'block') {
+                loadCitations();
+            } else if (requestsContainer.style.display === 'block') {
+                loadCitationRequests();
+            }
         }
     });
 
-    // Load initial content
-    document.getElementById('citations-container').style.display = 'block';
-    document.getElementById('citation-requests-container').style.display = 'none';
-    loadCitations();
+    // Close sort menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.sort-container')) {
+            sortMenu.style.display = 'none';
+            sortButton.classList.remove('active');
+        }
+    });
 
     // Initialize the record button functionality
     setupRecordButton();
@@ -350,7 +406,8 @@ async function initializeCitationForm() {
 // Function to initialize request form
 async function initializeRequestForm() {
     console.log('Initializing request form...');
-    await setupAnonymousCheckbox();
+    // Removed anonymous checkbox from request form
+    // await setupAnonymousCheckbox();
     
     // Re-check if the form exists after async operation
     const form = document.getElementById('request-form');
@@ -385,7 +442,7 @@ async function getYouTubeUsername() {
 
         // Method 2: Try to get from the page without opening menu
         const possibleElements = [
-            document.querySelector('ytd-guide-entry-renderer[line-end-style="handle"] #guide-entry-title'),
+            document.querySelector("ytd-guide-entry-renderer[line-end-style='handle'] #guide-entry-title"),
             document.querySelector('yt-formatted-string#channel-handle'),
             document.querySelector('[id="channel-handle"]')
         ];
@@ -586,22 +643,16 @@ async function setupFormListeners() {
             }
             
             try {
-                // Get current timestamp in ISO format
-                const currentTime = new Date().toISOString();
-                
-                // Get username based on checkbox state
-                const username = await getYouTubeUsername();
-                const anonymousCheckbox = document.getElementById('anonymous');
-                const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
-                
+                // Always submit requests as anonymous
                 const requestData = {
                     videoId,
                     title: requestForm.title.value,
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     reason: requestForm.reason.value,
-                    username: isAnonymous ? 'Anonymous' : username,
-                    timestamp: currentTime
+                    username: 'Anonymous',
+                    dateAdded: new Date().toISOString(), // Match citation field name
+                    voteScore: 0 // Initialize vote score like citations
                 };
 
                 console.log('Submitting request with data:', requestData);
@@ -633,7 +684,7 @@ async function setupFormListeners() {
 // Handle voting on requests
 async function handleRequestVote(requestId, voteType) {
     const videoId = new URLSearchParams(window.location.search).get('v');
-    const voteControls = document.querySelector(`.request-vote-controls[data-request-id="${requestId}"]`);
+    const voteControls = document.querySelector(`.vote-controls[data-request-id="${requestId}"]`);
     const voteScoreElement = voteControls.querySelector('.vote-score');
     const upvoteBtn = voteControls.querySelector('.upvote-btn');
     const downvoteBtn = voteControls.querySelector('.downvote-btn');
@@ -713,54 +764,6 @@ async function handleRequestVote(requestId, voteType) {
         console.error('Error updating votes:', error);
         // Revert UI changes on error
         loadCitationRequests();
-    }
-}
-
-async function loadCitationRequests() {
-    const container = document.getElementById("citation-requests-container");
-    if (!container) {
-        console.log("Citation requests container not found");
-        return;
-    }
-
-    const videoId = new URLSearchParams(window.location.search).get('v');
-    
-    try {
-        const [response, votesResponse] = await Promise.all([
-            chrome.runtime.sendMessage({
-                type: 'getRequests',
-                videoId
-            }),
-            new Promise(resolve => {
-                chrome.storage.local.get(`request_votes_${videoId}`, (result) => {
-                    resolve(result[`request_votes_${videoId}`] || {});
-                });
-            })
-        ]);
-
-        if (!response.success) {
-            throw new Error(response.error);
-        }
-
-        const requests = response.requests;
-        const userVotes = votesResponse;
-        
-        // Attach user votes to requests for consistent rendering
-        const requestsWithVotes = requests.map(request => ({
-            ...request,
-            userVote: userVotes[request.id] || null
-        }));
-
-        // Only update if data has changed
-        if (JSON.stringify(requestsWithVotes) !== JSON.stringify(currentRequests)) {
-            currentRequests = sortItems(requestsWithVotes, currentSortOption, 'request');
-            updateRequestsList(currentRequests, container);
-        }
-    } catch (error) {
-        console.error("Error loading citation requests:", error);
-        if (container.style.display === 'block') {
-            container.innerHTML = '<p>Error loading citation requests: ' + error.message + '</p>';
-        }
     }
 }
 
@@ -884,86 +887,6 @@ async function loadCitations() {
     loadCitationRequests();
 }
 
-// Handle voting on citations
-async function handleVote(citationId, voteType) {
-    const videoId = new URLSearchParams(window.location.search).get('v');
-    const voteControls = document.querySelector(`.vote-controls[data-citation-id="${citationId}"]`);
-    const voteScoreElement = voteControls.querySelector('.vote-score');
-    const upvoteBtn = voteControls.querySelector('.upvote-btn');
-    const downvoteBtn = voteControls.querySelector('.downvote-btn');
-
-    // Get current vote score
-    let voteScore = parseInt(voteScoreElement.textContent);
-
-    // Get previous vote
-    const previousVote = userVotes[citationId];
-
-    // Update score and UI based on the vote
-    if (voteType === 'up') {
-        if (previousVote === 'up') {
-            // Remove upvote
-            voteScore--;
-            upvoteBtn.classList.remove('active');
-            upvoteBtn.title = 'Upvote';
-            userVotes[citationId] = null;
-        } else {
-            // Upvote
-            voteScore++;
-            if (previousVote === 'down') {
-                // Remove previous downvote
-                voteScore++;
-            }
-            upvoteBtn.classList.add('active');
-            downvoteBtn.classList.remove('active');
-            upvoteBtn.title = 'Remove upvote';
-            downvoteBtn.title = 'Downvote';
-            userVotes[citationId] = 'up';
-        }
-    } else {
-        if (previousVote === 'down') {
-            // Remove downvote
-            voteScore++;
-            downvoteBtn.classList.remove('active');
-            downvoteBtn.title = 'Downvote';
-            userVotes[citationId] = null;
-        } else {
-            // Downvote
-            voteScore--;
-            if (previousVote === 'up') {
-                // Remove previous upvote
-                voteScore--;
-            }
-            downvoteBtn.classList.add('active');
-            upvoteBtn.classList.remove('active');
-            downvoteBtn.title = 'Downvote';
-            upvoteBtn.title = 'Upvote';
-            userVotes[citationId] = 'down';
-        }
-    }
-
-    // Update the displayed score
-    voteScoreElement.textContent = voteScore;
-
-    try {
-        // Send update to background script
-        const response = await chrome.runtime.sendMessage({
-            type: 'updateCitationVotes',
-            videoId,
-            citationId,
-            voteValue: voteScore,
-            userVote: userVotes[citationId]
-        });
-
-        if (!response.success) {
-            throw new Error(response.error);
-        }
-    } catch (error) {
-        console.error('Error updating votes:', error);
-        // Revert UI changes on error
-        loadCitations();
-    }
-}
-
 // Helper function to update citations list
 function updateCitationsList(citations, container) {
     if (!container) return;
@@ -1008,10 +931,7 @@ function updateCitationsList(citations, container) {
             
             citationElement.innerHTML = `
                 <p><strong>Title:</strong> ${citation.citationTitle}</p>
-                <p><strong>Time Range:</strong> 
-                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
-                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
-                </p>
+                <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
                 <p><strong>Added by:</strong> ${citation.username}</p>
                 <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
                     year: 'numeric',
@@ -1047,11 +967,7 @@ function updateCitationsList(citations, container) {
             citationElement.querySelectorAll('.timestamp-link').forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
-                    const time = parseInt(e.target.dataset.time);
-                    if (player && !isNaN(time)) {
-                        player.currentTime = time;
-                        player.play();
-                    }
+                    seekToTime(Number(link.dataset.time));
                 });
             });
 
@@ -1081,7 +997,7 @@ function updateRequestsList(requests, container) {
     } else {
         requests.forEach(request => {
             const requestElement = document.createElement("div");
-            requestElement.className = "citation-request";
+            requestElement.className = "citation-item";
             requestElement.dataset.start = parseTimestamp(request.timestampStart);
             requestElement.dataset.end = parseTimestamp(request.timestampEnd);
             
@@ -1094,37 +1010,30 @@ function updateRequestsList(requests, container) {
             }
 
             requestElement.innerHTML = `
-                <div class="request-content">
-                    <h3 class="request-title">${request.title || 'Untitled Request'}</h3>
-                    <strong>Time Range:</strong>
-                    <span class="time-range">
-                        <a href="#" class="timestamp-link" data-time="${start}">${request.timestampStart}</a>
-                        -
-                        <a href="#" class="timestamp-link" data-time="${end}">${request.timestampEnd}</a>
-                    </span>
-                    <strong>Requested by:</strong>
-                    <span>${request.username}</span>
-                    <strong>Date:</strong>
-                    <span>${new Intl.DateTimeFormat('en-US', {
+                <div class="citation-content">
+                    <p class="citation-title">${request.title || 'Untitled Request'}</p>
+                    <p><strong>Time Range:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
+                    <p><strong>Added by:</strong> ${request.username}</p>
+                    <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit',
                         hour12: true
-                    }).format(new Date(request.timestamp))}</span>
-                    <div class="description-area">${request.reason}</div>
-                    <div class="request-vote-controls" data-request-id="${request.id}">
-                        <button class="vote-btn upvote-btn ${request.userVote === 'up' ? 'active' : ''}" 
-                                title="${request.userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                            <span class="vote-icon">▲</span>
-                        </button>
-                        <span class="vote-score">${request.voteScore || 0}</span>
-                        <button class="vote-btn downvote-btn ${request.userVote === 'down' ? 'active' : ''}" 
-                                title="${request.userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                            <span class="vote-icon">▼</span>
-                        </button>
-                    </div>
+                    }).format(new Date(request.dateAdded))}</p>
+                    ${request.reason ? `<p class="description-area">${request.reason}</p>` : ''}
+                </div>
+                <div class="vote-controls" data-request-id="${request.id}">
+                    <button class="vote-btn upvote-btn ${request.userVote === 'up' ? 'active' : ''}" 
+                            title="${request.userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                        <span class="vote-icon">▲</span>
+                    </button>
+                    <span class="vote-score">${request.voteScore || 0}</span>
+                    <button class="vote-btn downvote-btn ${request.userVote === 'down' ? 'active' : ''}" 
+                            title="${request.userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                        <span class="vote-icon">▼</span>
+                    </button>
                 </div>
                 <button class="respond-btn" 
                         data-start="${request.timestampStart}" 
@@ -1143,7 +1052,7 @@ function updateRequestsList(requests, container) {
             });
 
             // Add vote event listeners
-            const voteControls = requestElement.querySelector('.request-vote-controls');
+            const voteControls = requestElement.querySelector('.vote-controls');
             const upvoteBtn = voteControls.querySelector('.upvote-btn');
             const downvoteBtn = voteControls.querySelector('.downvote-btn');
 
@@ -1197,7 +1106,7 @@ function updateHighlighting() {
     // Update citation requests highlighting
     needsResorting = false;
     if (requestsContainer && requestsContainer.style.display === 'block') {
-        requestsContainer.querySelectorAll('.citation-request').forEach(request => {
+        requestsContainer.querySelectorAll('.citation-item').forEach(request => {
             const start = Number(request.dataset.start);
             const end = Number(request.dataset.end);
             const wasHighlighted = request.classList.contains('active-citation');
@@ -1352,7 +1261,21 @@ function sortItems(items, sortBy, itemType = 'citation') {
             case 'upvotes':
                 return (b.voteScore || 0) - (a.voteScore || 0);
             case 'recent':
-                return new Date(b.timestamp || b.dateAdded) - new Date(a.timestamp || a.dateAdded);
+                try {
+                    const dateA = new Date(a.dateAdded);
+                    const dateB = new Date(b.dateAdded);
+                    if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+                        console.error('Invalid date values:', { 
+                            itemA: { id: a.id, dateAdded: a.dateAdded },
+                            itemB: { id: b.id, dateAdded: b.dateAdded }
+                        });
+                        return 0;
+                    }
+                    return dateB.getTime() - dateA.getTime();
+                } catch (error) {
+                    console.error('Error comparing dates:', error);
+                    return 0;
+                }
             default:
                 return 0;
         }
@@ -1365,6 +1288,129 @@ function sortItems(items, sortBy, itemType = 'citation') {
     // Return highlighted items first, followed by normal items
     return [...sortedHighlighted, ...sortedNormal];
 }
+
+async function loadCitationRequests() {
+    const container = document.getElementById("citation-requests-container");
+    if (!container) {
+        console.log("Citation requests container not found");
+        return;
+    }
+
+    const videoId = new URLSearchParams(window.location.search).get('v');
+    console.log("Loading citation requests for video:", videoId);
+    
+    try {
+        // Get requests and user votes in parallel, using same message types as citations
+        const [requestsResponse, votesResponse] = await Promise.all([
+            chrome.runtime.sendMessage({
+                type: 'getCitationRequests',
+                videoId: videoId
+            }),
+            chrome.runtime.sendMessage({
+                type: 'getUserVotes',
+                videoId: videoId,
+                itemType: 'request'
+            })
+        ]);
+
+        if (!requestsResponse.success) {
+            throw new Error(requestsResponse.error);
+        }
+
+        const requests = requestsResponse.requests || [];
+        console.log('Received requests:', requests); // Debug log
+        
+        // Validate dateAdded fields
+        requests.forEach(request => {
+            if (!request.dateAdded) {
+                console.warn('Request missing dateAdded:', request);
+                request.dateAdded = new Date().toISOString(); // Add fallback date
+            }
+            try {
+                const date = new Date(request.dateAdded);
+                if (isNaN(date.getTime())) {
+                    console.warn('Invalid dateAdded value:', request.dateAdded);
+                    request.dateAdded = new Date().toISOString(); // Fix invalid date
+                }
+            } catch (error) {
+                console.error('Error parsing dateAdded:', error);
+                request.dateAdded = new Date().toISOString(); // Fix error case
+            }
+        });
+
+        userVotes = votesResponse.success ? votesResponse.votes : {};
+        
+        // Sort the requests before updating the DOM
+        const sortedRequests = sortItems(requests, currentSortOption, 'request');
+        
+        // Only update DOM if container is visible and data has changed
+        if (container.style.display !== 'none' && JSON.stringify(sortedRequests) !== JSON.stringify(currentRequests)) {
+            currentRequests = sortedRequests;
+            updateRequestsList(currentRequests, container);
+        }
+    } catch (error) {
+        console.error("Error loading citation requests:", error);
+        if (container.style.display === 'block') {
+            container.innerHTML = '<p>Error loading citation requests: ' + error.message + '</p>';
+        }
+    }
+}
+
+async function handleVote(itemId, voteType, itemType = 'citation') {
+    try {
+        const response = await chrome.runtime.sendMessage({
+            type: 'updateVotes',
+            itemId,
+            voteType,
+            itemType
+        });
+
+        if (!response.success) {
+            throw new Error(response.error);
+        }
+
+        // Update UI based on response
+        const voteControls = document.querySelector(`[data-${itemType}-id="${itemId}"]`);
+        if (voteControls) {
+            const upvoteBtn = voteControls.querySelector('.upvote-btn');
+            const downvoteBtn = voteControls.querySelector('.downvote-btn');
+            const scoreElement = voteControls.querySelector('.vote-score');
+
+            // Update vote buttons
+            upvoteBtn.classList.toggle('active', response.newVote === 'up');
+            downvoteBtn.classList.toggle('active', response.newVote === 'down');
+
+            // Update vote score
+            if (scoreElement) {
+                scoreElement.textContent = response.newScore;
+            }
+
+            // Update local vote state
+            userVotes[itemId] = response.newVote;
+
+            // Resort items if needed
+            if (currentSortOption === 'upvotes') {
+                if (itemType === 'citation') {
+                    loadCitations();
+                } else {
+                    loadCitationRequests();
+                }
+            }
+        }
+    } catch (error) {
+        console.error(`Error updating ${itemType} vote:`, error);
+    }
+}
+
+// Add event listener for respond button
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('respond-btn')) {
+        const start = e.target.dataset.start;
+        const end = e.target.dataset.end;
+        const reason = e.target.dataset.reason;
+        window.respondWithCitation(start, end, reason);
+    }
+});
 
 function forceUpdateTitle() {
     const titleElement = document.getElementById("citation-title");
@@ -1396,12 +1442,66 @@ async function migrateCitationsToNewFormat() {
     }
 }
 
-// Add event listener for respond button
-document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('respond-btn')) {
-        const start = e.target.dataset.start;
-        const end = e.target.dataset.end;
-        const reason = e.target.dataset.reason;
-        window.respondWithCitation(start, end, reason);
+function showAddForm(isRequestsTab) {
+    const formContainer = document.getElementById('add-form-container');
+    formContainer.innerHTML = `
+        <form id="add-form">
+            <div class="form-group">
+                <input type="text" id="title-input" class="form-input" placeholder="${isRequestsTab ? 'Request Title' : 'Citation Title'}" required>
+            </div>
+            ${!isRequestsTab ? `
+            <div class="form-group">
+                <input type="text" id="author-input" class="form-input" placeholder="Author" required>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" id="anonymous-check" class="form-checkbox">
+                <label for="anonymous-check">Post as Anonymous</label>
+            </div>
+            ` : ''}
+            <div class="form-group">
+                <textarea id="reason-input" class="form-textarea" placeholder="${isRequestsTab ? 'Reason for Request' : 'Description'}" required></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="cancel-btn" class="cancel-btn">Cancel</button>
+                <button type="submit" class="submit-btn">${isRequestsTab ? 'Submit Request' : 'Add Citation'}</button>
+            </div>
+        </form>
+    `;
+
+    formContainer.style.display = 'block';
+    
+    // Add event listeners
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+        formContainer.style.display = 'none';
+    });
+    
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitForm(isRequestsTab);
+    });
+}
+
+// Function to initialize the extension
+async function initializeExtension() {
+    // Remove any existing citation controls first
+    const existingControls = document.getElementById('citation-controls');
+    if (existingControls) {
+        existingControls.remove();
     }
-});
+
+    // Wait for the secondary element to be available
+    const checkForSecondary = setInterval(() => {
+        const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+        if (secondaryElement) {
+            clearInterval(checkForSecondary);
+            // Check again before inserting to prevent race conditions
+            if (!document.getElementById('citation-controls')) {
+                insertCitationButtons();
+                setupSortingFunctionality();
+            }
+        }
+    }, 1000);
+}
+
+// Call initialize only on YouTube navigation
+document.addEventListener('yt-navigate-finish', initializeExtension);

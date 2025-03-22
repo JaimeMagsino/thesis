@@ -25,13 +25,18 @@ async function firestoreRequest(collection, docId = null, method = 'GET', data =
             fields: Object.entries(data).reduce((acc, [key, value]) => {
                 let fieldValue;
                 if (typeof value === 'string') {
-                    fieldValue = { stringValue: value };
+                    // Special handling for ISO date strings
+                    if (key === 'dateAdded' || key === 'timestamp') {
+                        fieldValue = { timestampValue: value };
+                    } else {
+                        fieldValue = { stringValue: value };
+                    }
                 } else if (typeof value === 'number') {
                     fieldValue = { integerValue: value };
                 } else if (typeof value === 'boolean') {
                     fieldValue = { booleanValue: value };
-                } else if (value instanceof Date || key === 'timestamp') {
-                    fieldValue = { timestampValue: value };  // Already an ISO string
+                } else if (value instanceof Date) {
+                    fieldValue = { timestampValue: value.toISOString() };
                 } else {
                     fieldValue = { stringValue: String(value) };
                 }
@@ -57,21 +62,43 @@ function convertFromFirestore(firestoreDoc) {
     if (!firestoreDoc || !firestoreDoc.fields) return null;
     
     return Object.entries(firestoreDoc.fields).reduce((acc, [key, value]) => {
-        const fieldValue = Object.values(value)[0];
         // Handle different Firestore field types
-        if (value.timestampValue) {
-            acc[key] = fieldValue;
-        } else if (value.stringValue !== undefined) {
-            acc[key] = value.stringValue;
-        } else if (value.integerValue !== undefined) {
-            acc[key] = parseInt(value.integerValue);
-        } else if (value.doubleValue !== undefined) {
-            acc[key] = value.doubleValue;
-        } else if (value.booleanValue !== undefined) {
-            acc[key] = value.booleanValue;
-        } else {
-            console.warn('Unknown field type for key:', key, 'value:', value);
-            acc[key] = fieldValue;
+        try {
+            if (value.timestampValue) {
+                // Parse and validate the timestamp
+                const date = new Date(value.timestampValue);
+                if (isNaN(date.getTime())) {
+                    console.error('Invalid timestamp value:', { key, value: value.timestampValue });
+                    acc[key] = new Date().toISOString();
+                } else {
+                    acc[key] = date.toISOString();
+                }
+            } else if (value.stringValue !== undefined) {
+                acc[key] = value.stringValue;
+            } else if (value.integerValue !== undefined) {
+                acc[key] = parseInt(value.integerValue);
+            } else if (value.doubleValue !== undefined) {
+                acc[key] = value.doubleValue;
+            } else if (value.booleanValue !== undefined) {
+                acc[key] = value.booleanValue;
+            } else {
+                console.warn('Unknown field type:', { key, value });
+                // For unknown types, try to extract the first value
+                const fieldValue = Object.values(value)[0];
+                if (fieldValue !== undefined) {
+                    acc[key] = fieldValue;
+                }
+            }
+        } catch (error) {
+            console.error('Error converting field:', { key, value, error });
+            // Provide sensible defaults for errors
+            if (key === 'dateAdded') {
+                acc[key] = new Date().toISOString();
+            } else if (key === 'voteScore') {
+                acc[key] = 0;
+            } else {
+                acc[key] = '';
+            }
         }
         return acc;
     }, {});
@@ -148,20 +175,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleAddRequest(request.data).then(sendResponse);
         return true;
     }
-    if (request.type === 'getRequests') {
+    if (request.type === 'getCitationRequests') {
         handleGetRequests(request.videoId).then(sendResponse);
         return true;
     }
-    if (request.type === 'updateCitationVotes') {
-        handleUpdateCitationVotes(request.videoId, request.citationId, request.voteValue, request.userVote).then(sendResponse);
-        return true;
-    }
-    if (request.type === 'updateRequestVotes') {
-        handleUpdateRequestVotes(request.videoId, request.requestId, request.voteValue, request.userVote).then(sendResponse);
+    if (request.type === 'updateVotes') {
+        if (request.itemType === 'citation') {
+            handleUpdateCitationVotes(request.videoId, request.itemId, request.voteType).then(sendResponse);
+        } else {
+            handleUpdateRequestVotes(request.videoId, request.itemId, request.voteType).then(sendResponse);
+        }
         return true;
     }
     if (request.type === 'getUserVotes') {
-        handleGetUserVotes(request.videoId).then(sendResponse);
+        handleGetUserVotes(request.videoId, request.itemType).then(sendResponse);
         return true;
     }
     if (request.type === 'migrateAllCitations') {
@@ -202,7 +229,7 @@ async function handleGetCitations(videoId) {
         const citations = result.documents ? await Promise.all(result.documents.map(async doc => {
             const data = convertFromFirestore(doc);
             const docId = doc.name.split('/').pop();
-
+            
             // Check if document needs migration (has 'source' instead of 'citationTitle')
             if (data.source && !data.citationTitle) {
                 await migrateCitationData(videoId, docId, data);
@@ -251,30 +278,49 @@ async function handleGetRequests(videoId) {
         console.log('Getting requests for video:', videoId);
         // List all documents in the video's requests collection
         const result = await firestoreRequest(`requests_${videoId}`);
-        console.log('Raw Firestore response:', result);
+        console.log('Raw Firestore response:', JSON.stringify(result, null, 2));
         
         // Convert Firestore documents to regular objects
         const requests = result.documents ? result.documents.map(doc => {
-            console.log('Processing doc:', doc);
+            console.log('Processing doc:', JSON.stringify(doc, null, 2));
             const data = convertFromFirestore(doc);
-            console.log('Converted data:', data);
+            console.log('Converted data:', JSON.stringify(data, null, 2));
+            
+            // Ensure dateAdded is valid
+            if (!data.dateAdded) {
+                console.warn('Request missing dateAdded, adding current time:', doc.name);
+                data.dateAdded = new Date().toISOString();
+            } else {
+                try {
+                    const date = new Date(data.dateAdded);
+                    if (isNaN(date.getTime())) {
+                        console.warn('Invalid dateAdded value, resetting:', data.dateAdded);
+                        data.dateAdded = new Date().toISOString();
+                    }
+                } catch (error) {
+                    console.error('Error parsing dateAdded:', error);
+                    data.dateAdded = new Date().toISOString();
+                }
+            }
+
             return {
                 id: doc.name.split('/').pop(),
-                ...data
+                ...data,
+                voteScore: data.voteScore || 0 // Ensure voteScore exists
             };
         }) : [];
 
-        // Sort by timestamp descending, with error handling
+        // Sort by dateAdded descending, with error handling
         requests.sort((a, b) => {
             try {
-                return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+                return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
             } catch (error) {
-                console.error('Error sorting timestamps:', error);
+                console.error('Error sorting by dateAdded:', error);
                 return 0;
             }
         });
 
-        console.log('Found requests:', requests.length);
+        console.log('Processed and sorted requests:', JSON.stringify(requests, null, 2));
         return { success: true, requests };
     } catch (error) {
         console.error('Error getting requests:', error);
@@ -282,99 +328,116 @@ async function handleGetRequests(videoId) {
     }
 }
 
-async function handleUpdateCitationVotes(videoId, citationId, voteValue, userVote) {
+async function handleUpdateCitationVotes(videoId, citationId, voteType) {
     try {
-        console.log('Updating citation votes:', { videoId, citationId, voteValue, userVote });
-        
         // Get current citation data
-        const citationRef = `citations_${videoId}/${citationId}`;
-        const citation = await firestoreRequest(`citations_${videoId}`, citationId, 'GET');
-        
+        const citation = await firestoreRequest(`citations_${videoId}`, citationId);
         if (!citation) {
             throw new Error('Citation not found');
         }
 
-        // Update the vote score
-        const updatedData = {
-            ...convertFromFirestore(citation),
-            voteScore: voteValue
-        };
-
-        // Update the document
-        await firestoreRequest(`citations_${videoId}`, citationId, 'PATCH', updatedData);
-
-        // Store user's vote in chrome.storage.local
-        const storageKey = `votes_${videoId}`;
-        const existingVotes = await new Promise(resolve => {
-            chrome.storage.local.get(storageKey, (result) => {
-                resolve(result[storageKey] || {});
+        // Get current user votes
+        const userVotes = await new Promise(resolve => {
+            chrome.storage.local.get(`citation_votes_${videoId}`, result => {
+                resolve(result[`citation_votes_${videoId}`] || {});
             });
         });
 
-        existingVotes[citationId] = userVote;
+        // Calculate new vote score
+        const currentVote = userVotes[citationId];
+        let voteScore = convertFromFirestore(citation).voteScore || 0;
+
+        if (voteType === currentVote) {
+            // Remove vote
+            voteScore += (voteType === 'up' ? -1 : 1);
+            delete userVotes[citationId];
+        } else {
+            // Add/change vote
+            if (currentVote) {
+                // Remove previous vote
+                voteScore += (currentVote === 'up' ? -1 : 1);
+            }
+            // Add new vote
+            voteScore += (voteType === 'up' ? 1 : -1);
+            userVotes[citationId] = voteType;
+        }
+
+        // Update citation in Firestore
+        await firestoreRequest(`citations_${videoId}`, citationId, 'PATCH', { voteScore });
+
+        // Save updated votes to local storage
         await new Promise(resolve => {
-            chrome.storage.local.set({ [storageKey]: existingVotes }, resolve);
+            chrome.storage.local.set({ [`citation_votes_${videoId}`]: userVotes }, resolve);
         });
-        
-        return { success: true };
+
+        return { success: true, newScore: voteScore, newVote: userVotes[citationId] || null };
     } catch (error) {
-        console.error('Error updating citation votes:', error);
+        console.error('Error updating citation vote:', error);
         return { success: false, error: error.message };
     }
 }
 
-async function handleGetUserVotes(videoId) {
+async function handleGetUserVotes(videoId, itemType = 'citation') {
     try {
-        const storageKey = `votes_${videoId}`;
-        const result = await new Promise(resolve => {
-            chrome.storage.local.get(storageKey, (result) => {
-                resolve(result[storageKey] || {});
+        console.log(`Getting ${itemType} votes for video:`, videoId);
+        // Get votes from local storage
+        const votes = await new Promise(resolve => {
+            chrome.storage.local.get(`${itemType}_votes_${videoId}`, result => {
+                resolve(result[`${itemType}_votes_${videoId}`] || {});
             });
         });
-        return { success: true, votes: result };
+        return { success: true, votes };
     } catch (error) {
-        console.error('Error getting user votes:', error);
+        console.error(`Error getting ${itemType} votes:`, error);
         return { success: false, error: error.message };
     }
 }
 
-async function handleUpdateRequestVotes(videoId, requestId, voteValue, userVote) {
+async function handleUpdateRequestVotes(videoId, requestId, voteType) {
     try {
-        console.log('Updating request votes:', { videoId, requestId, voteValue, userVote });
-        
         // Get current request data
-        const requestRef = `requests_${videoId}/${requestId}`;
-        const request = await firestoreRequest(`requests_${videoId}`, requestId, 'GET');
-        
+        const request = await firestoreRequest(`requests_${videoId}`, requestId);
         if (!request) {
             throw new Error('Request not found');
         }
 
-        // Update the vote score
-        const updatedData = {
-            ...convertFromFirestore(request),
-            voteScore: voteValue
-        };
-
-        // Update the document
-        await firestoreRequest(`requests_${videoId}`, requestId, 'PATCH', updatedData);
-
-        // Store user's vote in chrome.storage.local
-        const storageKey = `request_votes_${videoId}`;
-        const existingVotes = await new Promise(resolve => {
-            chrome.storage.local.get(storageKey, (result) => {
-                resolve(result[storageKey] || {});
+        // Get current user votes
+        const userVotes = await new Promise(resolve => {
+            chrome.storage.local.get(`request_votes_${videoId}`, result => {
+                resolve(result[`request_votes_${videoId}`] || {});
             });
         });
 
-        existingVotes[requestId] = userVote;
+        // Calculate new vote score
+        const currentVote = userVotes[requestId];
+        let voteScore = convertFromFirestore(request).voteScore || 0;
+
+        if (voteType === currentVote) {
+            // Remove vote
+            voteScore += (voteType === 'up' ? -1 : 1);
+            delete userVotes[requestId];
+        } else {
+            // Add/change vote
+            if (currentVote) {
+                // Remove previous vote
+                voteScore += (currentVote === 'up' ? -1 : 1);
+            }
+            // Add new vote
+            voteScore += (voteType === 'up' ? 1 : -1);
+            userVotes[requestId] = voteType;
+        }
+
+        // Update request in Firestore
+        await firestoreRequest(`requests_${videoId}`, requestId, 'PATCH', { voteScore });
+
+        // Save updated votes to local storage
         await new Promise(resolve => {
-            chrome.storage.local.set({ [storageKey]: existingVotes }, resolve);
+            chrome.storage.local.set({ [`request_votes_${videoId}`]: userVotes }, resolve);
         });
-        
-        return { success: true };
+
+        return { success: true, newScore: voteScore, newVote: userVotes[requestId] || null };
     } catch (error) {
-        console.error('Error updating request votes:', error);
+        console.error('Error updating request vote:', error);
         return { success: false, error: error.message };
     }
 }
