@@ -131,6 +131,7 @@ function insertCitationButtons() {
                 </div>
             </div>
         </div>
+        <div id="add-form-container" style="display: none;"></div>
         <div id="citations-container"></div>
         <div id="citation-requests-container"></div>
     `;
@@ -153,6 +154,8 @@ function insertCitationButtons() {
         document.getElementById('citations-container').style.display = 'none';
         document.getElementById('citation-requests-container').style.display = 'block';
         document.getElementById('add-item-btn').textContent = '+ Add Request';
+        // Close form when switching tabs
+        document.getElementById('add-form-container').style.display = 'none';
         loadCitationRequests();
     });
 
@@ -163,6 +166,8 @@ function insertCitationButtons() {
         document.getElementById('citations-container').style.display = 'block';
         document.getElementById('citation-requests-container').style.display = 'none';
         document.getElementById('add-item-btn').textContent = '+ Add Citation';
+        // Close form when switching tabs
+        document.getElementById('add-form-container').style.display = 'none';
         loadCitations();
     });
 
@@ -402,7 +407,8 @@ async function initializeCitationForm() {
 // Function to initialize request form
 async function initializeRequestForm() {
     console.log('Initializing request form...');
-    await setupAnonymousCheckbox();
+    // Removed anonymous checkbox from request form
+    // await setupAnonymousCheckbox();
     
     // Re-check if the form exists after async operation
     const form = document.getElementById('request-form');
@@ -638,18 +644,14 @@ async function setupFormListeners() {
             }
             
             try {
-                // Get username based on checkbox state
-                const username = await getYouTubeUsername();
-                const anonymousCheckbox = document.getElementById('anonymous');
-                const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
-                
+                // Always submit requests as anonymous
                 const requestData = {
                     videoId,
                     title: requestForm.title.value,
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     reason: requestForm.reason.value,
-                    username: isAnonymous ? 'Anonymous' : username,
+                    username: 'Anonymous',
                     dateAdded: new Date().toISOString(), // Match citation field name
                     voteScore: 0 // Initialize vote score like citations
                 };
@@ -930,10 +932,7 @@ function updateCitationsList(citations, container) {
             
             citationElement.innerHTML = `
                 <p><strong>Title:</strong> ${citation.citationTitle}</p>
-                <p><strong>Time Range:</strong> 
-                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
-                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
-                </p>
+                <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
                 <p><strong>Added by:</strong> ${citation.username}</p>
                 <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
                     year: 'numeric',
@@ -1442,4 +1441,43 @@ async function migrateCitationsToNewFormat() {
     } catch (error) {
         console.error('Error during migration:', error);
     }
+}
+
+function showAddForm(isRequestsTab) {
+    const formContainer = document.getElementById('add-form-container');
+    formContainer.innerHTML = `
+        <form id="add-form">
+            <div class="form-group">
+                <input type="text" id="title-input" class="form-input" placeholder="${isRequestsTab ? 'Request Title' : 'Citation Title'}" required>
+            </div>
+            ${!isRequestsTab ? `
+            <div class="form-group">
+                <input type="text" id="author-input" class="form-input" placeholder="Author" required>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" id="anonymous-check" class="form-checkbox">
+                <label for="anonymous-check">Post as Anonymous</label>
+            </div>
+            ` : ''}
+            <div class="form-group">
+                <textarea id="reason-input" class="form-textarea" placeholder="${isRequestsTab ? 'Reason for Request' : 'Description'}" required></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="cancel-btn" class="cancel-btn">Cancel</button>
+                <button type="submit" class="submit-btn">${isRequestsTab ? 'Submit Request' : 'Add Citation'}</button>
+            </div>
+        </form>
+    `;
+
+    formContainer.style.display = 'block';
+    
+    // Add event listeners
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+        formContainer.style.display = 'none';
+    });
+    
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitForm(isRequestsTab);
+    });
 }
