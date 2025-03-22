@@ -110,8 +110,8 @@ function insertCitationButtons() {
                 <button class="sort-button">
                     <span class="sort-icon">
                         <svg viewBox="0 0 24 24" width="24" height="24">
-                            <path d="M21,6H3V5h18V6z M15,11H3v1h12V11z M9,17H3v1h6V17z" fill="currentColor"></path>
-                        </svg>
+                        <path d="M21,6H3V5h18V6z M15,11H3v1h12V11z M9,17H3v1h6V17z" fill="currentColor"></path>
+                    </svg>
                     </span>
                     <span class="sort-text">Sort by</span>
                     <span class="sort-caret">
@@ -126,7 +126,7 @@ function insertCitationButtons() {
                         <span class="sort-check">✓</span>
                     </button>
                     <button class="sort-menu-item" data-value="recent">
-                        <span class="sort-menu-text">Sort by Recent</span>
+                        <span class="sort-menu-text">Newest first</span>
                     </button>
                 </div>
             </div>
@@ -138,12 +138,11 @@ function insertCitationButtons() {
     
     secondaryElement.prepend(citationControls);
 
-    // Create containers for citations and requests
-    const citationsContainer = document.getElementById('citations-container');
-    const requestsContainer = document.getElementById('citation-requests-container');
-    
-    // Set initial state
-    document.getElementById('citations-btn').classList.add('active');
+    // Set initial state and load citations
+    const citationsBtn = document.getElementById('citations-btn');
+    citationsBtn.classList.add('active');
+    document.getElementById('citations-container').style.display = 'block';
+    document.getElementById('citation-requests-container').style.display = 'none';
     loadCitations(); // Load citations immediately
 
     // Add event listeners for tab buttons
@@ -210,7 +209,7 @@ function insertCitationButtons() {
             currentSortOption = value;
             sortMenu.querySelectorAll('.sort-menu-item').forEach(item => {
                 item.innerHTML = `
-                    <span class="sort-menu-text">${item.dataset.value === 'upvotes' ? 'Most Upvoted' : 'Sort by Recent'}</span>
+                    <span class="sort-menu-text">${item.dataset.value === 'upvotes' ? 'Most Upvoted' : 'Newest first'}</span>
                     ${item.dataset.value === value ? '<span class="sort-check">✓</span>' : ''}
                 `;
             });
@@ -1481,3 +1480,28 @@ function showAddForm(isRequestsTab) {
         await submitForm(isRequestsTab);
     });
 }
+
+// Function to initialize the extension
+async function initializeExtension() {
+    // Remove any existing citation controls first
+    const existingControls = document.getElementById('citation-controls');
+    if (existingControls) {
+        existingControls.remove();
+    }
+
+    // Wait for the secondary element to be available
+    const checkForSecondary = setInterval(() => {
+        const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+        if (secondaryElement) {
+            clearInterval(checkForSecondary);
+            // Check again before inserting to prevent race conditions
+            if (!document.getElementById('citation-controls')) {
+                insertCitationButtons();
+                setupSortingFunctionality();
+            }
+        }
+    }, 1000);
+}
+
+// Call initialize only on YouTube navigation
+document.addEventListener('yt-navigate-finish', initializeExtension);

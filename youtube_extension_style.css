@@ -239,7 +239,7 @@ h3 {
     background: none;
     border: none;
     border-radius: 18px;
-    color: #0f0f0f;
+    color: #065fd4;
     cursor: pointer;
     font-family: "Roboto", "Arial", sans-serif;
     font-size: 14px;
@@ -249,11 +249,11 @@ h3 {
 }
 
 .sort-button:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(6, 95, 212, 0.1);
 }
 
-.sort-button.active {
-    background-color: rgba(0, 0, 0, 0.1);
+.sort-button:active {
+    background-color: rgba(6, 95, 212, 0.2);
 }
 
 .sort-icon {
@@ -337,10 +337,11 @@ h3 {
 .header-actions {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 8px;
     padding: 0 16px;
     margin-bottom: 16px;
+    flex-wrap: wrap;
 }
 
 /* Tab buttons container */
@@ -392,6 +393,42 @@ h3 {
     border-radius: 0;
     margin: 0;
     min-width: auto;
+}
+
+/* Action buttons */
+.add-btn,
+.action-btn {
+    background: none;
+    border: none;
+    color: #065fd4;
+    cursor: pointer;
+    font-family: "Roboto", "Arial", sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: background-color 0.1s;
+}
+
+.add-btn:hover,
+.action-btn:hover {
+    background-color: rgba(6, 95, 212, 0.1);
+}
+
+.add-btn:active,
+.action-btn:active {
+    background-color: rgba(6, 95, 212, 0.2);
+}
+
+/* Remove old button styles */
+.add-btn,
+.action-btn {
+    min-width: auto;
+    margin: 0;
+    text-transform: none;
 }
 
 /* Placeholder Page */
