@@ -319,21 +319,7 @@ textarea {
     gap: 10px;
     border-radius: 5px;
     flex-direction: column;
-}
-
-.button-container {
-    display: flex;
-    gap: 10px;
-}
-
-/* Styling for the form and list view containers */
-#citation-form-container,
-#list-view-container {
-    margin-top: 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    background-color: #fff;
+    width: 400px; 
 }
 
 /* Container styles */
@@ -341,13 +327,34 @@ textarea {
 .citations-container {
     display: none;
     transition: none;
+    min-height: 300px; 
+    width: 100%; 
 }
 
 /* Container visibility */
+#citation-form-container,
+#list-view-container,
+#add-form-container {
+    margin-top: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    background-color: #fff;
+    width: 100%; 
+    box-sizing: border-box; 
+}
+
 #citation-form-container.active,
 #list-view-container.active {
     border: 2px solid #0073e6;
     box-shadow: 0 0 10px rgba(0, 115, 230, 0.2);
+}
+
+/* Theatre mode specific styles */
+ytd-watch-flexy[theater] .citation-controls {
+    width: 400px; 
+    max-height: 80vh; 
+    overflow-y: auto; 
 }
 
 /* Citation item styles */

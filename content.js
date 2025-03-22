@@ -54,7 +54,7 @@ function mutationCallback(mutationsList) {
                 const ccDiv = document.querySelector("#citation-controls");
                 playerContainer.appendChild(ccDiv); // appendChild moves the existing element
                 ccDiv.style.position = 'absolute';
-                ccDiv.style.top = '30%'; // Position % relative to the top of the container; adjust as needed
+                ccDiv.style.top = '10%'; // Position % relative to the top of the container; adjust as needed
                 ccDiv.style.right = '0';
                 ccDiv.style.zIndex = '999'; // High z-index so it floats above everything else
             } else {
