@@ -261,23 +261,62 @@ function setupRecordButtons() {
     // Create start record button
     const startRecordBtn = document.createElement('button');
     startRecordBtn.className = 'ytp-button record-start-btn';
-    startRecordBtn.title = 'Start Recording';
+    startRecordBtn.title = 'Start Recording Timestamp for Citation';
     startRecordBtn.innerHTML = `
-        <svg height="100%" viewBox="0 0 36 36" width="100%">
-            <circle cx="18" cy="18" r="10" fill="#ff0000"/>
-        </svg>
+        <div class="citation-record-btn">
+            <svg height="100%" viewBox="0 0 36 36" width="100%">
+                <rect x="8" y="8" width="20" height="20" rx="2" fill="none" stroke="#ff0000" stroke-width="2"/>
+                <circle cx="18" cy="18" r="6" fill="#ff0000"/>
+                <text x="4" y="35" font-size="8" fill="#ff0000">CITE</text>
+            </svg>
+        </div>
     `;
 
     // Create end record button (initially hidden)
     const endRecordBtn = document.createElement('button');
     endRecordBtn.className = 'ytp-button record-end-btn';
-    endRecordBtn.title = 'End Recording';
+    endRecordBtn.title = 'End Recording Timestamp for Citation';
     endRecordBtn.style.display = 'none';
     endRecordBtn.innerHTML = `
-        <svg height="100%" viewBox="0 0 36 36" width="100%">
-            <path d="M 13 13 L 23 23 M 13 23 L 23 13" stroke="#ff0000" stroke-width="2"/>
-        </svg>
+        <div class="citation-record-btn">
+            <svg height="100%" viewBox="0 0 36 36" width="100%">
+                <rect x="8" y="8" width="20" height="20" rx="2" fill="none" stroke="#ff0000" stroke-width="2"/>
+                <path d="M 14 14 L 22 22 M 14 22 L 22 14" stroke="#ff0000" stroke-width="2"/>
+                <text x="4" y="35" font-size="8" fill="#ff0000">STOP</text>
+            </svg>
+        </div>
     `;
+
+    // Add CSS for the new buttons
+    const style = document.createElement('style');
+    style.textContent = `
+        .citation-record-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            margin: 0 4px;
+            border: 1px solid rgba(255, 0, 0, 0.5);
+        }
+        
+        .record-start-btn.recording-active .citation-record-btn {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 0, 0, 0.5); }
+            50% { background: rgba(255, 0, 0, 0.2); border-color: rgba(255, 0, 0, 0.8); }
+            100% { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 0, 0, 0.5); }
+        }
+
+        .citation-record-btn:hover {
+            background: rgba(255, 0, 0, 0.2);
+            border-color: rgba(255, 0, 0, 0.8);
+        }
+    `;
+    document.head.appendChild(style);
 
     let recordStartTime = null;
 
@@ -1544,6 +1583,10 @@ style.textContent = `
         font-size: 16px;
         flex-shrink: 0;
         z-index: 2;
+        position: absolute;
+        left: -24px;
+        top: 50%;
+        transform: translateY(-50%);
     }
     
     .recorded-segments-panel .panel-content {
@@ -1554,7 +1597,6 @@ style.textContent = `
         max-height: 80vh;
         overflow-y: auto;
         color: white;
-        margin-left: -4px; /* Overlap with toggle button to avoid gap */
     }
     
     .recorded-segments-panel.collapsed {
@@ -1562,7 +1604,7 @@ style.textContent = `
     }
     
     .recorded-segments-panel.collapsed .toggle-btn {
-        transform: translateX(-100%);
+        transform: translate(0, -50%);
     }
     
     .recorded-segments-panel h3 {
