@@ -40,18 +40,32 @@ window.respondWithCitation = function(start, end, reason, title = '') {
 };
 
 function waitForDependencies() {
+    console.log('Waiting for YouTube page dependencies...');
     const checkPage = setInterval(() => {
         const titleContainer = document.querySelector("ytd-watch-metadata");
         const videoElement = document.querySelector("video");
         if (titleContainer && videoElement) {
             clearInterval(checkPage);
             player = videoElement;
+            console.log('Dependencies found, initializing extension features...');
             setupTimeTracking();
             setupVideoChangeTracking();
             init();
-            console.log("YouTube page ready, initializing extension");
+            
+            // Add a slight delay before setting up record buttons to ensure player controls are ready
+            setTimeout(() => {
+                console.log('Setting up record functionality...');
+                setupRecordButtons();
+                console.log('YouTube page ready, extension fully initialized');
+            }, 1000);
         }
     }, 100);
+    
+    // Clear interval after 30 seconds to prevent infinite checking
+    setTimeout(() => {
+        clearInterval(checkPage);
+        console.warn('Timed out waiting for YouTube page dependencies');
+    }, 30000);
 }
 
 // Function to check if theater mode is active
@@ -316,12 +330,76 @@ function insertCitationButtons() {
 
 // Setup Record Buttons to toggle recording and capture timestamps
 function setupRecordButtons() {
-    const playerControls = document.querySelector('.ytp-left-controls');
-    if (!playerControls || document.querySelector('.record-start-btn')) return;
+    console.log('Setting up record buttons...');
+    
+    // Check if buttons already exist
+    if (document.querySelector('.record-start-btn')) {
+        console.log('Record buttons already exist, skipping setup');
+        return;
+    }
+    
+    // Look for player controls - try multiple selectors for better reliability
+    const playerControlsSelectors = [
+        '.ytp-left-controls',
+        '.ytp-chrome-bottom .ytp-left-controls',
+        '#movie_player .ytp-chrome-bottom .ytp-left-controls',
+        '#movie_player .ytp-left-controls'
+    ];
+    
+    let playerControls = null;
+    
+    // Try each selector
+    for (const selector of playerControlsSelectors) {
+        playerControls = document.querySelector(selector);
+        if (playerControls) {
+            console.log('Found player controls with selector:', selector);
+            break;
+        }
+    }
+    
+    // If we still couldn't find controls, return early but log it
+    if (!playerControls) {
+        console.error('Could not find YouTube player controls. Record buttons not added.');
+        return;
+    }
 
-    // Find the timestamp element
-    const timestamp = playerControls.querySelector('.ytp-time-display');
-    if (!timestamp) return;
+    // Find the timestamp element - again with fallback selectors
+    const timestampSelectors = [
+        '.ytp-time-display',
+        '.ytp-time-current',
+        '.ytp-time-display > span'
+    ];
+    
+    let timestamp = null;
+    
+    // Try each timestamp selector
+    for (const selector of timestampSelectors) {
+        timestamp = playerControls.querySelector(selector);
+        if (timestamp) {
+            console.log('Found timestamp element with selector:', selector);
+            break;
+        }
+    }
+
+    // If we couldn't find the timestamp element, try to find another anchor point
+    if (!timestamp) {
+        timestamp = playerControls.querySelector('.ytp-volume-panel') || 
+                   playerControls.querySelector('button') ||
+                   playerControls.firstChild;
+                   
+        if (!timestamp) {
+            console.error('Could not find suitable anchor for record buttons in player controls');
+            return;
+        }
+        console.log('Using fallback anchor for record buttons');
+    }
+
+    // Make sure we have access to the video element
+    const player = document.querySelector('video');
+    if (!player) {
+        console.error('Could not find video element. Record buttons not added.');
+        return;
+    }
 
     // Create start record button
     const startRecordBtn = document.createElement('button');
@@ -355,10 +433,13 @@ function setupRecordButtons() {
     // Insert buttons right after the timestamp
     timestamp.insertAdjacentElement('afterend', startRecordBtn);
     timestamp.insertAdjacentElement('afterend', endRecordBtn);
+    
+    console.log('Record buttons added to player controls');
 
     let recordStartTime = null;
 
     startRecordBtn.addEventListener('click', () => {
+        console.log('Start record button clicked');
         recordStartTime = player.currentTime;
         startRecordBtn.style.display = 'none';
         endRecordBtn.style.display = '';
@@ -366,13 +447,17 @@ function setupRecordButtons() {
     });
 
     endRecordBtn.addEventListener('click', () => {
+        console.log('End record button clicked');
         const recordEndTime = player.currentTime;
         startRecordBtn.style.display = '';
         endRecordBtn.style.display = 'none';
         startRecordBtn.classList.remove('recording-active');
         
         if (recordStartTime !== null && recordEndTime > recordStartTime) {
+            console.log('Recording completed: start=', recordStartTime, 'end=', recordEndTime);
             addRecordedSegment(recordStartTime, recordEndTime);
+        } else {
+            console.warn('Invalid recording: start time must be before end time');
         }
         recordStartTime = null;
     });
@@ -416,15 +501,39 @@ function checkAndHidePanel() {
 
 // Function to add a new recorded segment
 function addRecordedSegment(startTime, endTime) {
+    console.log('Adding recorded segment:', startTime, endTime);
+    
+    // Create or get the panel
     const panel = setupRecordedSegmentsPanel();
-    panel.style.display = ''; // Show panel when adding new segment
-    const container = panel.querySelector('.segments-container');
+    
+    // Make sure the panel is properly styled
+    if (!panel.style.position) {
+        panel.style.position = 'fixed';
+        panel.style.top = '20%';
+        panel.style.right = '0';
+        panel.style.zIndex = '2000';
+    }
+    
+    // Make panel visible
+    panel.style.display = '';
+    
+    // Get or create the container
+    let container = panel.querySelector('.segments-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'segments-container';
+        panel.querySelector('.panel-content').appendChild(container);
+    }
+    
+    // Create segment element
     const segment = document.createElement('div');
     segment.className = 'recorded-segment';
     
+    // Format the times
     const formattedStart = formatTime(Math.floor(startTime));
     const formattedEnd = formatTime(Math.floor(endTime));
     
+    // Create segment HTML
     segment.innerHTML = `
         <div class="time-range">${formattedStart} - ${formattedEnd}</div>
         <div class="actions">
@@ -434,63 +543,125 @@ function addRecordedSegment(startTime, endTime) {
         </div>
     `;
 
-    // Add event listeners
+    // Add event listeners for the time range (to seek)
     segment.querySelector('.time-range').addEventListener('click', () => {
-        player.currentTime = startTime;
+        const video = document.querySelector('video');
+        if (video) {
+            video.currentTime = startTime;
+            video.play();
+        }
     });
 
+    // Add Citation button
     segment.querySelector('.cite-btn').addEventListener('click', () => {
-        document.getElementById('citations-btn').click();
-        document.getElementById('add-item-btn').click();
+        // First, make sure the citation tab is selected
+        const citationsBtn = document.getElementById('citations-btn');
+        if (citationsBtn) {
+            citationsBtn.click();
+        }
+        
+        // Then click the add button
+        const addItemBtn = document.getElementById('add-item-btn');
+        if (addItemBtn) {
+            addItemBtn.click();
+        }
+        
         // Wait for form to load
         setTimeout(() => {
             const form = document.getElementById('citation-form');
             if (form) {
-                form.timestampStart.value = formattedStart;
-                form.timestampEnd.value = formattedEnd;
-                form.citationTitle.focus();
+                // Find and populate timestamp fields
+                const startField = form.querySelector('#timestampStart');
+                const endField = form.querySelector('#timestampEnd');
+                
+                if (startField) startField.value = formattedStart;
+                if (endField) endField.value = formattedEnd;
+                
+                // Focus on title field
+                const titleField = form.querySelector('#citationTitle');
+                if (titleField) titleField.focus();
+                
                 console.log('Citation form loaded with start:', formattedStart, 'and end:', formattedEnd);
-                initializeCitationForm();
+                
+                // Initialize the form if needed
+                if (typeof initializeCitationForm === 'function') {
+                    initializeCitationForm();
+                }
             } else {
                 console.error("Citation form not found!");
             }
-        }, 100);
+        }, 300);
+        
         // Collapse panel to show form
         panel.classList.add('collapsed');
-        const toggleBtn = document.querySelector('.toggle-btn');
+        const toggleBtn = panel.querySelector('.toggle-btn');
         if (toggleBtn) toggleBtn.textContent = '▶';
     });
 
+    // Add Request button
     segment.querySelector('.request-btn').addEventListener('click', () => {
-        document.getElementById('citation-requests-btn').click();
-        document.getElementById('add-item-btn').click();
+        // First, make sure the requests tab is selected
+        const requestsBtn = document.getElementById('citation-requests-btn');
+        if (requestsBtn) {
+            requestsBtn.click();
+        }
+        
+        // Then click the add button
+        const addItemBtn = document.getElementById('add-item-btn');
+        if (addItemBtn) {
+            addItemBtn.click();
+        }
+        
         // Wait for form to load
         setTimeout(() => {
             const form = document.getElementById('request-form');
             if (form) {
-                form.timestampStart.value = formattedStart;
-                form.timestampEnd.value = formattedEnd;
-                form.reason.focus();
+                // Find and populate timestamp fields
+                const startField = form.querySelector('#timestampStart');
+                const endField = form.querySelector('#timestampEnd');
+                
+                if (startField) startField.value = formattedStart;
+                if (endField) endField.value = formattedEnd;
+                
+                // Focus on reason field
+                const reasonField = form.querySelector('#reason');
+                if (reasonField) reasonField.focus();
+                
                 console.log('Request form loaded with start:', formattedStart, 'and end:', formattedEnd);
+                
+                // Initialize the form if needed
+                if (typeof initializeRequestForm === 'function') {
+                    initializeRequestForm();
+                }
             } else {
                 console.error("Request form not found!");
             }
-        }, 100);
+        }, 300);
+        
         // Collapse panel to show form
         panel.classList.add('collapsed');
-        const toggleBtn = document.querySelector('.toggle-btn');
+        const toggleBtn = panel.querySelector('.toggle-btn');
         if (toggleBtn) toggleBtn.textContent = '▶';
     });
 
+    // Delete button
     segment.querySelector('.delete-btn').addEventListener('click', () => {
         segment.remove();
-        checkAndHidePanel();
+        // Check if container is empty and hide panel if needed
+        if (container.children.length === 0) {
+            panel.style.display = 'none';
+        }
     });
 
+    // Add segment to container
     container.appendChild(segment);
+    
+    // Make sure panel is expanded
     panel.classList.remove('collapsed');
-    const toggleBtn = document.querySelector('.toggle-btn');
+    const toggleBtn = panel.querySelector('.toggle-btn');
     if (toggleBtn) toggleBtn.textContent = '◀';
+    
+    console.log('Recorded segment added successfully');
 }
 
 // Utility function to format seconds into HH:MM:SS
@@ -603,6 +774,14 @@ function showQuickTaskButtons(startTime, endTime) {
 
 function init() {
     console.log('Initializing extension...');
+    
+    // Clear any existing controls first to prevent duplicates
+    const existingControls = document.getElementById('citation-controls');
+    if (existingControls) {
+        console.log('Removing existing citation controls');
+        existingControls.remove();
+    }
+    
     insertCitationButtons();
     observeTheaterMode();
     
@@ -615,6 +794,9 @@ function init() {
     if (requestForm) {
         initializeRequestForm();
     }
+    
+    // Ensure recorded segments panel exists
+    setupRecordedSegmentsPanel();
 }
 
 // Function to initialize citation form
@@ -1938,7 +2120,7 @@ style.textContent = `
     }
 
     .vote-btn.upvote-btn:hover .vote-icon {
-        color: #28a745;
+        color: #1a73e8;
     }
 
     .vote-btn.downvote-btn:hover .vote-icon {
@@ -1946,7 +2128,7 @@ style.textContent = `
     }
 
     .vote-btn.upvote-btn.voted .vote-icon {
-        color: #28a745;
+        color: #1a73e8;
     }
 
     .vote-btn.downvote-btn.voted .vote-icon {
@@ -2505,29 +2687,28 @@ function onVideoLoad() {
 function init() {
     console.log('Initializing extension...');
     
-    // Wait for player to be ready before initializing
-    const waitForPlayer = setInterval(() => {
-        const player = getPlayer();
-        if (player) {
-            clearInterval(waitForPlayer);
-            console.log('Player ready, initializing features');
-            insertCitationButtons();
-            observeTheaterMode();
-            
-            // Initialize forms if they exist
-            const citationForm = document.getElementById('citation-form');
-            if (citationForm) {
-                initializeCitationForm();
-            }
-            const requestForm = document.getElementById('request-form');
-            if (requestForm) {
-                initializeRequestForm();
-            }
-        }
-    }, 500);
+    // Clear any existing controls first to prevent duplicates
+    const existingControls = document.getElementById('citation-controls');
+    if (existingControls) {
+        console.log('Removing existing citation controls');
+        existingControls.remove();
+    }
     
-    // Clear interval after 10 seconds if player not found
-    setTimeout(() => clearInterval(waitForPlayer), 10000);
+    insertCitationButtons();
+    observeTheaterMode();
+    
+    // Initialize forms if they exist
+    const citationForm = document.getElementById('citation-form');
+    if (citationForm) {
+        initializeCitationForm();
+    }
+    const requestForm = document.getElementById('request-form');
+    if (requestForm) {
+        initializeRequestForm();
+    }
+    
+    // Ensure recorded segments panel exists
+    setupRecordedSegmentsPanel();
 }
 
 // Function to get YouTube player
@@ -2627,3 +2808,153 @@ function updateStoredWidth() {
 
 // Call updateStoredWidth on window resize for additional reliability
 window.addEventListener('resize', updateStoredWidth);
+
+// Add CSS for the recorded segments panel
+const recordedSegmentsStyle = document.createElement('style');
+recordedSegmentsStyle.textContent = `
+    .recorded-segments-panel {
+        position: fixed;
+        top: 20%;
+        right: 0;
+        background-color: white;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px 0 0 4px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 2000;
+        transition: transform 0.3s ease;
+        width: 260px;
+        max-width: 90%;
+        display: flex;
+    }
+    
+    .recorded-segments-panel.collapsed {
+        transform: translateX(calc(100% - 30px));
+    }
+    
+    .recorded-segments-panel .toggle-btn {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #1a73e8;
+        color: white;
+        border: none;
+        border-radius: 4px 0 0 4px;
+        padding: 8px;
+        cursor: pointer;
+        width: 30px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+    
+    .recorded-segments-panel .panel-content {
+        padding: 12px;
+        width: 100%;
+        margin-left: 30px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .recorded-segments-panel h3 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        font-size: 16px;
+        font-weight: 500;
+        color: #202124;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        padding-bottom: 8px;
+    }
+    
+    .recorded-segment {
+        padding: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        margin-bottom: 8px;
+        background-color: #f8f9fa;
+    }
+    
+    .recorded-segment .time-range {
+        font-weight: 500;
+        margin-bottom: 8px;
+        cursor: pointer;
+        color: #1a73e8;
+    }
+    
+    .recorded-segment .time-range:hover {
+        text-decoration: underline;
+    }
+    
+    .recorded-segment .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    
+    .recorded-segment .actions button {
+        flex: 1;
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        min-width: 0;
+        white-space: nowrap;
+        font-weight: 500;
+    }
+    
+    .recorded-segment .actions .cite-btn {
+        background-color: #1a73e8;
+        color: white;
+    }
+    
+    .recorded-segment .actions .request-btn {
+        background-color: #34a853;
+        color: white;
+    }
+    
+    .recorded-segment .actions .delete-btn {
+        background-color: #ea4335;
+        color: white;
+    }
+    
+    .recorded-segment .actions button:hover {
+        opacity: 0.9;
+    }
+`;
+document.head.appendChild(recordedSegmentsStyle);
+
+// Fix and ensure the record functionality works correctly
+function ensureRecordingFeatureWorks() {
+    console.log('Ensuring recording feature is working correctly...');
+    
+    // Make sure the record button is setup properly
+    setupRecordButtons();
+    
+    // If the record button is missing, retry after a delay
+    const checkRecordButton = setInterval(() => {
+        const recordBtn = document.querySelector('.record-start-btn');
+        if (!recordBtn) {
+            console.log('Record button not found, recreating...');
+            setupRecordButtons();
+        } else {
+            console.log('Record button found, clearing interval');
+            clearInterval(checkRecordButton);
+        }
+    }, 2000);
+    
+    // Clear the interval after 20 seconds to avoid infinite checking
+    setTimeout(() => clearInterval(checkRecordButton), 20000);
+}
+
+// Call this function when the page loads and after navigation
+window.addEventListener('yt-navigate-finish', () => {
+    setTimeout(ensureRecordingFeatureWorks, 1500);
+});
+
+// Also run on initial page load
+if (location.href.includes('youtube.com/watch')) {
+    setTimeout(ensureRecordingFeatureWorks, 1500);
+}
