@@ -1387,17 +1387,126 @@ async function handleVote(itemId, voteType, itemType = 'citation') {
             // Update local vote state
             userVotes[itemId] = response.newVote;
 
-            // Resort items if needed
-            if (currentSortOption === 'upvotes') {
-                if (itemType === 'citation') {
-                    loadCitations();
-                } else {
-                    loadCitationRequests();
+            // Get the container and trigger immediate resort
+            const container = itemType === 'citation' ? 
+                document.getElementById('citations-container') : 
+                document.getElementById('citation-requests-container');
+
+            if (container) {
+                const items = Array.from(container.querySelectorAll('.citation-item'));
+                const highlighted = [];
+                const normal = [];
+                const currentTime = player?.currentTime || 0;
+
+                // Split items into highlighted and normal
+                items.forEach(item => {
+                    const start = parseFloat(item.dataset.start);
+                    const end = parseFloat(item.dataset.end);
+                    const isHighlighted = currentTime >= start && currentTime <= end;
+                    
+                    if (isHighlighted) {
+                        highlighted.push(item);
+                    } else {
+                        normal.push(item);
+                    }
+                });
+
+                // Sort function for vote scores
+                const sortByVoteScore = (a, b) => {
+                    const scoreA = parseInt(a.querySelector('.vote-score')?.textContent || '0');
+                    const scoreB = parseInt(b.querySelector('.vote-score')?.textContent || '0');
+                    if (scoreB !== scoreA) {
+                        return scoreB - scoreA;
+                    }
+                    // If scores are equal, sort by date
+                    const dateA = new Date(a.querySelector('p:nth-child(3)')?.textContent.split(': ')[1] || 0);
+                    const dateB = new Date(b.querySelector('p:nth-child(3)')?.textContent.split(': ')[1] || 0);
+                    return dateB - dateA;
+                };
+
+                // Sort function for dates
+                const sortByDate = (a, b) => {
+                    const dateA = new Date(a.querySelector('p:nth-child(3)')?.textContent.split(': ')[1] || 0);
+                    const dateB = new Date(b.querySelector('p:nth-child(3)')?.textContent.split(': ')[1] || 0);
+                    return dateB - dateA;
+                };
+
+                // Sort based on current option
+                const sortFunction = currentSortOption === 'upvotes' ? sortByVoteScore : sortByDate;
+                highlighted.sort(sortFunction);
+                normal.sort(sortFunction);
+
+                // Clear and rebuild container
+                container.innerHTML = '';
+
+                // Create section header function
+                const createSectionHeader = (text) => {
+                    const header = document.createElement('div');
+                    header.className = 'section-header';
+                    header.textContent = text;
+                    return header;
+                };
+
+                // Add highlighted section
+                if (highlighted.length > 0) {
+                    container.appendChild(createSectionHeader('Current Timestamps'));
+                    highlighted.forEach(item => container.appendChild(item));
+                }
+
+                // Add non-highlighted section
+                if (normal.length > 0) {
+                    if (highlighted.length > 0) {
+                        container.appendChild(document.createElement('br'));
+                    }
+                    container.appendChild(createSectionHeader('Other Items'));
+                    normal.forEach(item => container.appendChild(item));
+                }
+
+                // Re-attach event listeners for the reinserted elements
+                container.querySelectorAll('.vote-controls').forEach(controls => {
+                    const itemId = controls.dataset[`${itemType}Id`];
+                    const upBtn = controls.querySelector('.upvote-btn');
+                    const downBtn = controls.querySelector('.downvote-btn');
+                    
+                    upBtn.addEventListener('click', () => handleVote(itemId, 'up', itemType));
+                    downBtn.addEventListener('click', () => handleVote(itemId, 'down', itemType));
+                });
+
+                // Re-attach timestamp click handlers
+                container.querySelectorAll('.timestamp-link').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const time = parseInt(e.target.dataset.time);
+                        if (player && !isNaN(time)) {
+                            player.currentTime = time;
+                            player.play();
+                        }
+                    });
+                });
+
+                // Re-attach respond button handlers for requests
+                if (itemType === 'request') {
+                    container.querySelectorAll('.respond-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            window.respondWithCitation(
+                                btn.dataset.start,
+                                btn.dataset.end,
+                                `Response to request: ${btn.dataset.reason || ''}`,
+                                btn.dataset.title || ''
+                            );
+                        });
+                    });
                 }
             }
         }
     } catch (error) {
         console.error(`Error updating ${itemType} vote:`, error);
+        // On error, refresh the full list to ensure consistency
+        if (itemType === 'citation') {
+            loadCitations();
+        } else {
+            loadCitationRequests();
+        }
     }
 }
 
