@@ -337,7 +337,7 @@ h3 {
 .header-actions {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: 8px;
     padding: 0 16px;
     margin-bottom: 16px;
@@ -677,6 +677,28 @@ h3 {
     font-size: 13px;
     font-weight: 500;
     margin: 0 4px;
+}
+
+/* Upvote button styles */
+.upvote-btn.voted {
+    color: #2ecc71;
+    background-color: rgba(46, 204, 113, 0.1);
+}
+
+.upvote-btn.voted:hover {
+    background-color: rgba(46, 204, 113, 0.2);
+    color: #27ae60;
+}
+
+/* Downvote button styles */
+.downvote-btn.voted {
+    color: #e74c3c;
+    background-color: rgba(231, 76, 60, 0.1);
+}
+
+.downvote-btn.voted:hover {
+    background-color: rgba(231, 76, 60, 0.2);
+    color: #c0392b;
 }
 
 /* Respond button */
