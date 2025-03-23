@@ -147,9 +147,11 @@ function insertCitationButtons() {
                 </div>
             </div>
         </div>
-        <div id="add-form-container" style="display: none;"></div>
-        <div id="citations-container"></div>
-        <div id="citation-requests-container"></div>
+        <div class="citations-scroll-container">
+            <div id="add-form-container" style="display: none;"></div>
+            <div id="citations-container"></div>
+            <div id="citation-requests-container"></div>
+        </div>
     `;
     
     secondaryElement.prepend(citationControls);
@@ -1524,6 +1526,33 @@ function updateCitationsList(citations, container) {
 // Add CSS for highlighting and recorded segments panel
 const style = document.createElement('style');
 style.textContent = `
+    #citation-controls {
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .citations-scroll-container {
+        flex: 1;
+        overflow-y: auto;
+        max-height: calc(80vh - 120px);
+        padding-right: 8px;
+    }
+
+    .citations-scroll-container::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .citations-scroll-container::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+    }
+    
+    .citations-scroll-container::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+    }
+
     /* Tutorial Tooltip */
     .simple-tooltip {
         position: absolute;
