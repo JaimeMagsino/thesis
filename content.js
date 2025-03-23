@@ -1420,6 +1420,7 @@ function createRequestElement(request) {
     requestElement.className = "citation-item";
     requestElement.dataset.start = parseTimestamp(request.timestampStart);
     requestElement.dataset.end = parseTimestamp(request.timestampEnd);
+    requestElement.dataset.requestId = request.id;
     
     requestElement.innerHTML = `
         <p><strong>Title:</strong> ${request.citationTitle}</p>
@@ -1440,9 +1441,14 @@ function createRequestElement(request) {
         <p><strong>Source:</strong> ${request.source ? 
             `<a href="${request.source}" target="_blank" rel="noopener noreferrer">${request.source}</a>` : 
             'N/A'}</p>
-        <div class="request-controls">
-            <button class="accept-request-btn" data-request-id="${request.id}">Accept</button>
-            <button class="reject-request-btn" data-request-id="${request.id}">Reject</button>
+        <div class="vote-controls" data-request-id="${request.id}">
+            <button class="upvote-btn ${request.userVote === 'up' ? 'voted' : ''}" title="Upvote">
+                <span class="arrow">▲</span>
+            </button>
+            <span class="vote-score">${request.voteScore || 0}</span>
+            <button class="downvote-btn ${request.userVote === 'down' ? 'voted' : ''}" title="Downvote">
+                <span class="arrow">▼</span>
+            </button>
         </div>
     `;
 
@@ -1458,12 +1464,12 @@ function createRequestElement(request) {
         });
     });
 
-    // Add event listeners for accept/reject buttons
-    const acceptBtn = requestElement.querySelector('.accept-request-btn');
-    const rejectBtn = requestElement.querySelector('.reject-request-btn');
+    // Add event listeners for voting buttons
+    const upvoteBtn = requestElement.querySelector('.upvote-btn');
+    const downvoteBtn = requestElement.querySelector('.downvote-btn');
 
-    acceptBtn.addEventListener('click', () => handleRequestAction(request.id, 'accept'));
-    rejectBtn.addEventListener('click', () => handleRequestAction(request.id, 'reject'));
+    upvoteBtn.addEventListener('click', () => handleVote(request.id, 'up', 'request'));
+    downvoteBtn.addEventListener('click', () => handleVote(request.id, 'down', 'request'));
 
     return requestElement;
 }

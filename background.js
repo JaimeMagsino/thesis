@@ -416,7 +416,11 @@ async function handleGetUserVotes(videoId, itemType = 'citation') {
 
 async function handleUpdateRequestVotes(videoId, requestId, voteType) {
     try {
-        // Get current request data
+        if (!videoId) {
+            throw new Error('Video ID is required');
+        }
+
+        // Get the request document
         const request = await firestoreRequest(`requests_${videoId}`, requestId);
         if (!request) {
             throw new Error('Request not found');
@@ -431,7 +435,8 @@ async function handleUpdateRequestVotes(videoId, requestId, voteType) {
 
         // Calculate new vote score
         const currentVote = userVotes[requestId];
-        let voteScore = convertFromFirestore(request).voteScore || 0;
+        const currentRequest = convertFromFirestore(request);
+        let voteScore = currentRequest.voteScore || 0;
 
         if (voteType === currentVote) {
             // Remove vote
@@ -448,8 +453,11 @@ async function handleUpdateRequestVotes(videoId, requestId, voteType) {
             userVotes[requestId] = voteType;
         }
 
-        // Update request in Firestore
-        await firestoreRequest(`requests_${videoId}`, requestId, 'PATCH', { voteScore });
+        // Update request in Firestore - preserve all fields and update voteScore
+        await firestoreRequest(`requests_${videoId}`, requestId, 'PATCH', {
+            ...currentRequest,
+            voteScore
+        });
 
         // Save updated votes to local storage
         await new Promise(resolve => {
