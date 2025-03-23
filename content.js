@@ -255,7 +255,7 @@ function insertCitationButtons() {
 
 // Setup Record Buttons to toggle recording and capture timestamps
 function setupRecordButtons() {
-    const playerControls = document.querySelector('.ytp-right-controls');
+    const playerControls = document.querySelector('.ytp-left-controls');
     if (!playerControls || document.querySelector('.record-start-btn')) return;
 
     // Create start record button
@@ -300,14 +300,20 @@ function setupRecordButtons() {
         recordStartTime = null;
     });
 
-    // Insert buttons before the autoplay button
-    const autoplayBtn = playerControls.querySelector('.ytp-button[data-tooltip-target-id="ytp-autonav-toggle-button"]');
-    if (autoplayBtn) {
-        playerControls.insertBefore(endRecordBtn, autoplayBtn);
-        playerControls.insertBefore(startRecordBtn, endRecordBtn);
+    // Insert buttons after the play button in the left controls
+    const playButton = playerControls.querySelector('.ytp-play-button');
+    if (playButton) {
+        const nextSibling = playButton.nextSibling;
+        if (nextSibling) {
+            playerControls.insertBefore(endRecordBtn, nextSibling);
+            playerControls.insertBefore(startRecordBtn, endRecordBtn);
+        } else {
+            playerControls.appendChild(startRecordBtn);
+            playerControls.appendChild(endRecordBtn);
+        }
     } else {
-        playerControls.appendChild(endRecordBtn);
         playerControls.appendChild(startRecordBtn);
+        playerControls.appendChild(endRecordBtn);
     }
 }
 
@@ -1256,7 +1262,7 @@ async function loadCitationRequests() {
         // Only update DOM if container is visible and data has changed
         if (container.style.display !== 'none' && JSON.stringify(sortedRequests) !== JSON.stringify(currentRequests)) {
             currentRequests = sortedRequests;
-            updateRequestsList(currentRequests, container);
+            updateRequestsList(sortedRequests, container);
         }
     } catch (error) {
         console.error("Error loading citation requests:", error);
