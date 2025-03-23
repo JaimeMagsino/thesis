@@ -69,25 +69,30 @@ function mutationCallback(mutationsList) {
 
                 const playerContainer = document.querySelector('#ytd-player');
                 const ccDiv = document.querySelector("#citation-controls");
-                const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
                 
-                playerContainer.appendChild(ccDiv);
-                ccDiv.style.position = 'absolute';
-                ccDiv.style.top = '0';
-                ccDiv.style.right = '0';
-                ccDiv.style.zIndex = '999';
-                ccDiv.style.width = secondaryElement ? secondaryElement.offsetWidth + 'px' : '400px';
-                ccDiv.style.backgroundColor = 'white';
-                ccDiv.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+                if (ccDiv) {
+                    playerContainer.appendChild(ccDiv);
+                    ccDiv.style.position = 'absolute';
+                    ccDiv.style.top = '0';
+                    ccDiv.style.right = '0';
+                    ccDiv.style.zIndex = '999';
+                    // Use the stored width
+                    ccDiv.style.width = storedSecondaryWidth + 'px';
+                    ccDiv.style.backgroundColor = 'white';
+                    ccDiv.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+                }
             } else {
                 console.log('Theater mode deactivated');
                 
                 const ccDiv = document.querySelector("#citation-controls");
                 const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
                 
-                ccDiv.removeAttribute('style');
-                ccDiv.style.width = secondaryElement ? secondaryElement.offsetWidth + 'px' : '400px';
-                secondaryElement.insertBefore(ccDiv, secondaryElement.firstChild);
+                if (ccDiv && secondaryElement) {
+                    ccDiv.removeAttribute('style');
+                    // Use the stored width
+                    ccDiv.style.width = storedSecondaryWidth + 'px';
+                    secondaryElement.insertBefore(ccDiv, secondaryElement.firstChild);
+                }
             }
         }
     }
@@ -108,6 +113,9 @@ function insertBelowTitle() {
     return;
 }
 
+// Add a variable to store the width of the secondary element
+let storedSecondaryWidth = 0;
+
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
     if (!secondaryElement) {
@@ -115,9 +123,15 @@ function insertCitationButtons() {
         return;
     }
     
+    // Store the initial width
+    storedSecondaryWidth = secondaryElement.offsetWidth;
+    
     const citationControls = document.createElement("div");
     citationControls.id = "citation-controls";
     citationControls.className = "citation-controls";
+    
+    // Set initial width to match secondary element
+    citationControls.style.width = storedSecondaryWidth + 'px';
     
     citationControls.innerHTML = `
         <div class="extension-header">
@@ -169,6 +183,24 @@ function insertCitationButtons() {
     `;
     
     secondaryElement.prepend(citationControls);
+    
+    // Create a ResizeObserver to update width when secondary element changes
+    const resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+            if (entry.target === secondaryElement) {
+                // Update the stored width
+                storedSecondaryWidth = entry.target.offsetWidth;
+                
+                const ccDiv = document.querySelector("#citation-controls");
+                if (ccDiv) {
+                    ccDiv.style.width = storedSecondaryWidth + 'px';
+                }
+            }
+        }
+    });
+    
+    // Start observing the secondary element
+    resizeObserver.observe(secondaryElement);
 
     // Add toggle functionality
     const toggleBtn = document.getElementById('toggle-extension');
@@ -610,6 +642,13 @@ async function initializeRequestForm() {
     const form = document.getElementById('request-form');
     if (form) {
         console.log('Setting up request form listeners');
+        
+        // Remove the anonymous checkbox if it exists
+        const anonymousGroup = form.querySelector('#anonymous-group');
+        if (anonymousGroup) {
+            anonymousGroup.style.display = 'none';
+        }
+        
         setupFormListeners();
     } else {
         console.log('Request form not found after initialization');
@@ -755,7 +794,39 @@ function loadPage(url, containerId, callback = null) {
     fetch(chrome.runtime.getURL(url))
         .then(response => response.text())
         .then(html => {
-            document.getElementById(containerId).innerHTML = html;
+            const container = document.getElementById(containerId);
+            container.innerHTML = html;
+            
+            // Apply additional styling to form elements
+            const forms = container.querySelectorAll('form');
+            forms.forEach(form => {
+                form.style.maxWidth = '100%';
+                
+                // Style input and textarea elements
+                const inputs = form.querySelectorAll('input, textarea');
+                inputs.forEach(input => {
+                    if (input.type !== 'checkbox') {
+                        input.classList.add('form-input');
+                    }
+                });
+                
+                const textareas = form.querySelectorAll('textarea');
+                textareas.forEach(textarea => {
+                    textarea.classList.add('form-textarea');
+                });
+                
+                // Style form buttons
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.classList.add('submit-btn');
+                }
+                
+                const cancelBtn = form.querySelector('button.cancel-btn');
+                if (cancelBtn) {
+                    cancelBtn.classList.add('cancel-btn');
+                }
+            });
+            
             setupFormListeners();
             if (callback) callback();
         })
@@ -1650,25 +1721,26 @@ function createCitationElement(citation, userVote) {
         
         citationElement.innerHTML = `
             <div style="display: flex; flex-direction: column; min-height: 200px;">
-                <div style="flex: 1;">
-                    <p><strong>Title:</strong> ${citation.citationTitle}</p>
-                    <p><strong>Time Range:</strong> 
-                        <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
-                        <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
-                    </p>
-                    <p><strong>Added by:</strong> ${usernameDisplay}</p>
-                    <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    }).format(new Date(citation.dateAdded))}</p>
-                    <p><strong>Description:</strong> ${citation.description}</p>
-                    ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
+                <div class="citation-title">${citation.citationTitle}</div>
+                <div style="flex: 1; padding: 16px;">
+                    <div class="time-range">
+                        <span class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</span>
+                        <span class="time-separator">to</span>
+                        <span class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</span>
+                    </div>
+                    <div class="citation-meta">
+                        <span>${usernameDisplay}</span>
+                        <span>•</span>
+                        <span>${new Intl.DateTimeFormat('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        }).format(new Date(citation.dateAdded))}</span>
+                    </div>
+                    <div class="citation-description">${citation.description}</div>
+                    ${citation.source ? `<div class="citation-source"><a href="${citation.source}" target="_blank">${citation.source}</a></div>` : ''}
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px 16px;">
                     <div class="vote-controls" data-citation-id="${citation.id}">
                         <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
                                 title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
@@ -1774,31 +1846,57 @@ style.textContent = `
         border-radius: 4px;
     }
     
-    .citations-scroll-container,
+    .citations-scroll-container {
+        overflow-y: auto;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        margin-top: -8px; /* Reduce space after header */
+    }
+
+    .header-actions {
+        padding: 0 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px; /* Reduced from default */
+    }
+
+    #add-form-container {
+        padding: 12px 16px; /* Reduced top/bottom padding */
+        background-color: white;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
     #citations-container,
     #citation-requests-container {
+        padding: 8px 16px 16px; /* Reduced top padding */
         overflow-y: auto;
-        padding: 16px;
     }
 
     .section-header {
         font-weight: 500;
-        padding: 12px 16px;
+        padding: 8px 16px; /* Reduced padding */
         border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        margin-bottom: 16px;
+        margin-bottom: 12px; /* Reduced margin */
         color: #030303;
         font-size: 14px;
         background-color: #f8f8f8;
         border-radius: 4px;
     }
 
+    .citation-item:first-child {
+        margin-top: 8px; /* Add a small margin to first item */
+    }
+
     .citation-item {
-        margin-bottom: 16px;
-        padding: 16px;
+        margin-bottom: 12px; /* Reduced from 16px */
         border: 1px solid rgba(0, 0, 0, 0.1);
         border-radius: 8px;
         background-color: white;
         transition: background-color 0.2s ease;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
 
     .citation-item:hover {
@@ -1823,19 +1921,70 @@ style.textContent = `
         cursor: pointer;
         color: #606060;
         transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
     }
 
-    .vote-btn:hover {
+    .vote-btn:hover .vote-icon {
         color: #030303;
     }
 
-    .vote-btn.voted {
-        color: #1a73e8;
+    .vote-btn.upvote-btn .vote-icon {
+        color: #606060;
+    }
+
+    .vote-btn.downvote-btn .vote-icon {
+        color: #606060;
+    }
+
+    .vote-btn.upvote-btn:hover .vote-icon {
+        color: #28a745;
+    }
+
+    .vote-btn.downvote-btn:hover .vote-icon {
+        color: #dc3545;
+    }
+
+    .vote-btn.upvote-btn.voted .vote-icon {
+        color: #28a745;
+    }
+
+    .vote-btn.downvote-btn.voted .vote-icon {
+        color: #dc3545;
     }
 
     .vote-score {
         font-weight: 500;
         color: #606060;
+        min-width: 20px;
+        text-align: center;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 18px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: white;
+        min-width: 100px;
+        text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .action-btn.delete-btn {
+        background-color: #dc3545;
+    }
+
+    .action-btn.respond-btn {
+        background-color: #1a73e8;
+    }
+
+    .action-btn:hover {
+        opacity: 0.9;
     }
 
     .add-btn {
@@ -1844,11 +1993,85 @@ style.textContent = `
         border-radius: 18px;
         font-weight: 500;
         cursor: pointer;
-        transition: background-color 0.2s ease;
+        transition: all 0.2s ease;
+        background-color: #1a73e8;
+        color: white;
     }
 
     .add-btn:hover {
         opacity: 0.9;
+    }
+
+    .citation-title, .request-title {
+        padding: 12px 16px;
+        font-size: 16px;
+        font-weight: 500;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        color: #202124;
+    }
+
+    .time-range {
+        margin-bottom: 8px;
+        font-size: 14px;
+        color: #5f6368;
+        display: flex;
+        align-items: center;
+    }
+
+    .timestamp-link {
+        color: #1a73e8;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .timestamp-link:hover {
+        text-decoration: underline;
+    }
+
+    .time-separator {
+        margin: 0 6px;
+        color: #5f6368;
+    }
+
+    .citation-meta, .request-meta {
+        font-size: 13px;
+        color: #5f6368;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    .username-link {
+        color: #1a73e8;
+        text-decoration: none;
+    }
+
+    .username-link:hover {
+        text-decoration: underline;
+    }
+
+    .citation-description, .request-description {
+        margin-top: 12px;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #202124;
+    }
+
+    .citation-source {
+        margin-top: 12px;
+        font-size: 13px;
+    }
+
+    .citation-source a {
+        color: #1a73e8;
+        text-decoration: none;
+        word-break: break-all;
+    }
+
+    .citation-source a:hover {
+        text-decoration: underline;
     }
 `;
 document.head.appendChild(style);
@@ -1893,24 +2116,23 @@ function createRequestElement(request) {
     
     requestElement.innerHTML = `
         <div style="display: flex; flex-direction: column; min-height: 200px;">
-            <div style="flex: 1;">
-                <p><strong>Title:</strong> ${request.title || ''}</p>
-                <p><strong>Time Range:</strong> 
-                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampStart)}">${request.timestampStart}</a> - 
-                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</a>
-                </p>
-                <p><strong>Requested by:</strong> ${request.username}</p>
-                <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                }).format(new Date(request.dateAdded))}</p>
-                <p><strong>Description:</strong> ${request.reason || ''}</p>
+            <div class="request-title">${request.title || 'Untitled Request'}</div>
+            <div style="flex: 1; padding: 16px;">
+                <div class="time-range">
+                    <span class="timestamp-link" data-time="${parseTimestamp(request.timestampStart)}">${request.timestampStart}</span>
+                    <span class="time-separator">to</span>
+                    <span class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</span>
+                </div>
+                <div class="request-meta">
+                    <span>${new Intl.DateTimeFormat('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    }).format(new Date(request.dateAdded))}</span>
+                </div>
+                <div class="request-description">${request.reason || ''}</div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px 16px;">
                 <div class="vote-controls" data-request-id="${request.id}">
                     <button class="vote-btn upvote-btn ${request.userVote === 'up' ? 'voted' : ''}" title="Upvote">
                         <span class="vote-icon">▲</span>
@@ -2388,3 +2610,20 @@ const dropdownStyles = `
 const dropdownStyleEl = document.createElement('style');
 dropdownStyleEl.textContent = dropdownStyles;
 document.head.appendChild(dropdownStyleEl);
+
+// Function to update the stored width value
+function updateStoredWidth() {
+    const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+    if (secondaryElement) {
+        storedSecondaryWidth = secondaryElement.offsetWidth;
+        
+        // Update any existing citation controls
+        const ccDiv = document.querySelector("#citation-controls");
+        if (ccDiv) {
+            ccDiv.style.width = storedSecondaryWidth + 'px';
+        }
+    }
+}
+
+// Call updateStoredWidth on window resize for additional reliability
+window.addEventListener('resize', updateStoredWidth);
