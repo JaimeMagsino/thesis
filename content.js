@@ -113,48 +113,65 @@ function insertCitationButtons() {
     citationControls.className = "citation-controls";
     
     citationControls.innerHTML = `
-        <div class="button-container">
-            <button id="citation-requests-btn">Citation Requests</button>
-            <button id="citations-btn">Citations</button>
-        </div>
-        <div id="citation-title-container" class="header-container">
-            <h3 id="citation-title" class="section-title">Citations</h3>
-        </div>
-        <div class="header-actions">
-            <button id="add-item-btn" class="add-btn">+ Add Citation</button>
-            <div class="sort-container">
-                <button class="sort-button">
-                    <span class="sort-icon">
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                        <path d="M21,6H3V5h18V6z M15,11H3v1h12V11z M9,17H3v1h6V17z" fill="currentColor"></path>
-                   svg>
-                    </span>
-                    <span class="sort-text">Sort by</span>
-                    <span class="sort-caret">
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                            <path d="M7 10l5 5 5-5z" fill="currentColor"></path>
-                        </svg>
-                    </span>
-                </button>
-                <div class="sort-menu" style="display: none;">
-                    <button class="sort-menu-item" data-value="upvotes">
-                        <span class="sort-menu-text">Most Upvoted</span>
-                        <span class="sort-check">✓</span>
-                    </button>
-                    <button class="sort-menu-item" data-value="recent">
-                        <span class="sort-menu-text">Newest first</span>
-                    </button>
-                </div>
+        <div class="extension-header">
+            <button id="toggle-extension" class="toggle-extension-btn">
+                <span class="toggle-icon">▼</span>
+            </button>
+            <div class="button-container">
+                <button id="citation-requests-btn">Citation Requests</button>
+                <button id="citations-btn">Citations</button>
             </div>
         </div>
-        <div class="citations-scroll-container">
-            <div id="add-form-container" style="display: none;"></div>
-            <div id="citations-container"></div>
-            <div id="citation-requests-container"></div>
+        <div id="extension-content" class="extension-content">
+            <div id="citation-title-container" class="header-container">
+                <h3 id="citation-title" class="section-title">Citations</h3>
+            </div>
+            <div class="header-actions">
+                <button id="add-item-btn" class="add-btn">+ Add Citation</button>
+                <div class="sort-container">
+                    <button class="sort-button">
+                        <span class="sort-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                            <path d="M21,6H3V5h18V6z M15,11H3v1h12V11z M9,17H3v1h6V17z" fill="currentColor"></path>
+                           </svg>
+                        </span>
+                        <span class="sort-text">Sort by</span>
+                        <span class="sort-caret">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path d="M7 10l5 5 5-5z" fill="currentColor"></path>
+                            </svg>
+                        </span>
+                    </button>
+                    <div class="sort-menu" style="display: none;">
+                        <button class="sort-menu-item" data-value="upvotes">
+                            <span class="sort-menu-text">Most Upvoted</span>
+                            <span class="sort-check">✓</span>
+                        </button>
+                        <button class="sort-menu-item" data-value="recent">
+                            <span class="sort-menu-text">Newest first</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="citations-scroll-container">
+                <div id="add-form-container" style="display: none;"></div>
+                <div id="citations-container"></div>
+                <div id="citation-requests-container"></div>
+            </div>
         </div>
     `;
     
     secondaryElement.prepend(citationControls);
+
+    // Add toggle functionality
+    const toggleBtn = document.getElementById('toggle-extension');
+    const extensionContent = document.getElementById('extension-content');
+    const toggleIcon = toggleBtn.querySelector('.toggle-icon');
+    
+    toggleBtn.addEventListener('click', () => {
+        extensionContent.style.display = extensionContent.style.display === 'none' ? 'block' : 'none';
+        toggleIcon.textContent = extensionContent.style.display === 'none' ? '▶' : '▼';
+    });
 
     // Set initial state and load citations
     const citationsBtn = document.getElementById('citations-btn');
@@ -783,6 +800,9 @@ async function setupFormListeners() {
                     alert('Citation added successfully!');
                     form.reset();
                     document.getElementById('add-form-container').style.display = 'none';
+                    // Update the add button text
+                    const addButton = document.getElementById('add-item-btn');
+                    addButton.textContent = '+ Add Citation';
                     loadCitations();
                 } else {
                     throw new Error(response.error);
@@ -813,18 +833,13 @@ async function setupFormListeners() {
                 const endTime = requestForm.timestampEnd.value;
                 const { startSeconds, endSeconds } = validateTimestamps(startTime, endTime, videoDuration);
                 
-                // Get username based on checkbox state
-                const username = await getYouTubeUsername();
-                const anonymousCheckbox = document.getElementById('anonymous');
-                const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
-                
                 const requestData = {
                     videoId,
                     title: requestForm.title.value.trim(),
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     reason: requestForm.reason.value.trim(),
-                    username: isAnonymous ? 'Anonymous' : username,
+                    username: 'Anonymous', // Always set to Anonymous for requests
                     dateAdded: new Date().toISOString(),
                     voteScore: 0
                 };
@@ -838,6 +853,9 @@ async function setupFormListeners() {
                     alert('Citation request submitted successfully!');
                     requestForm.reset();
                     document.getElementById('add-form-container').style.display = 'none';
+                    // Update the add button text
+                    const addButton = document.getElementById('add-item-btn');
+                    addButton.textContent = '+ Add Request';
                     loadCitationRequests();
                 } else {
                     throw new Error(response.error);
@@ -2116,16 +2134,20 @@ function updateHighlighting() {
             
             // Add highlighted section
             if (highlighted.length > 0) {
-                container.appendChild(createSectionHeader('Current Timestamps'));
+                const currentHeader = container === citationsContainer ? 'Current Citations' : 'Current Requests';
+                container.appendChild(createSectionHeader(currentHeader));
                 highlighted.forEach(item => container.appendChild(item));
             }
 
-            // Add non-highlighted section
-            if (normal.length > 0) {
-                if (highlighted.length > 0) {
-                    container.appendChild(document.createElement('br'));
-                }
-                container.appendChild(createSectionHeader('Other Items'));
+            // Add non-highlighted section only if there are both highlighted and non-highlighted items
+            if (normal.length > 0 && highlighted.length > 0) {
+                container.appendChild(document.createElement('br'));
+                // Use appropriate header text based on container type
+                const headerText = container === citationsContainer ? 'Other Citations' : 'Other Requests';
+                container.appendChild(createSectionHeader(headerText));
+                normal.forEach(item => container.appendChild(item));
+            } else if (normal.length > 0) {
+                // If there are only non-highlighted items, add them without a header
                 normal.forEach(item => container.appendChild(item));
             }
 
@@ -2394,3 +2416,50 @@ if (location.href.includes('youtube.com/watch')) {
 const styleEl2 = document.createElement('style');
 styleEl2.textContent = buttonStyles;
 document.head.appendChild(styleEl2);
+
+// Add CSS for the dropdown functionality
+const dropdownStyles = `
+    .extension-header {
+        display: flex;
+        align-items: center;
+        padding: 8px;
+        background-color: #f8f8f8;
+        border-radius: 4px 4px 0 0;
+    }
+
+    .toggle-extension-btn {
+        background: none;
+        border: none;
+        padding: 4px 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 8px;
+        color: #606060;
+        transition: transform 0.2s ease;
+    }
+
+    .toggle-extension-btn:hover {
+        color: #030303;
+    }
+
+    .toggle-icon {
+        font-size: 16px;
+        transition: transform 0.2s ease;
+    }
+
+    .extension-content {
+        transition: max-height 0.3s ease-out;
+    }
+
+    .extension-content.collapsed {
+        max-height: 0;
+        overflow: hidden;
+    }
+`;
+
+// Add the styles to the page
+const dropdownStyleEl = document.createElement('style');
+dropdownStyleEl.textContent = dropdownStyles;
+document.head.appendChild(dropdownStyleEl);
