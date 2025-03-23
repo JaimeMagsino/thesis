@@ -189,10 +189,12 @@ function insertCitationButtons() {
     // Add event listeners for add button
     document.getElementById('add-item-btn').addEventListener('click', () => {
         const formContainer = document.getElementById('add-form-container');
+        const addButton = document.getElementById('add-item-btn');
         const isRequestsTab = document.getElementById('citation-requests-container').style.display === 'block';
         
         if (formContainer.style.display === 'none') {
             formContainer.style.display = 'block';
+            addButton.textContent = isRequestsTab ? '- Add Request' : '- Add Citation';
             if (isRequestsTab) {
                 loadPage("youtube_extension_request.html", "add-form-container", () => {
                     initializeRequestForm();
@@ -204,6 +206,7 @@ function insertCitationButtons() {
             }
         } else {
             formContainer.style.display = 'none';
+            addButton.textContent = isRequestsTab ? '+ Add Request' : '+ Add Citation';
         }
     });
 
