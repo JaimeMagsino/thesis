@@ -18,12 +18,14 @@ window.respondWithCitation = function(start, end, reason, title = '') {
             const startField = form.querySelector('#timestampStart');
             const endField = form.querySelector('#timestampEnd');
             const descriptionField = form.querySelector('#description');
+            const sourceField = form.querySelector('#source');
 
             // Set values if the fields exist
             if (titleField) titleField.value = title;
             if (startField) startField.value = start;
             if (endField) endField.value = end;
             if (descriptionField) descriptionField.value = reason;
+            if (sourceField) sourceField.value = '';
 
             // Focus on title if empty, otherwise on description
             if (title) {
@@ -600,6 +602,7 @@ async function setupFormListeners() {
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     description: form.description.value.trim(),
+                    source: form.source.value.trim(),
                     username: isAnonymous ? 'Anonymous' : username,
                     dateAdded: new Date().toISOString()
                 };
@@ -1245,6 +1248,9 @@ function showAddForm(isRequestsTab) {
             <div class="form-group">
                 <textarea id="reason-input" class="form-textarea" placeholder="${isRequestsTab ? 'Reason for Request' : 'Description'}" required></textarea>
             </div>
+            <div class="form-group">
+                <input type="text" id="source-input" class="form-input" placeholder="Source URL" required>
+            </div>
             <div class="form-actions">
                 <button type="button" id="cancel-btn" class="cancel-btn">Cancel</button>
                 <button type="submit" class="submit-btn">${isRequestsTab ? 'Submit Request' : 'Add Citation'}</button>
@@ -1314,6 +1320,7 @@ function createCitationElement(citation, userVote) {
             hour12: true
         }).format(new Date(citation.dateAdded))}</p>
         <p><strong>Description:</strong> ${citation.description}</p>
+        ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
         <div class="vote-controls" data-citation-id="${citation.id}">
             <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
                     title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
