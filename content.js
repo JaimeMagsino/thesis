@@ -69,18 +69,25 @@ function mutationCallback(mutationsList) {
 
                 const playerContainer = document.querySelector('#ytd-player');
                 const ccDiv = document.querySelector("#citation-controls");
-                playerContainer.appendChild(ccDiv); // appendChild moves the existing element
+                const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+                
+                playerContainer.appendChild(ccDiv);
                 ccDiv.style.position = 'absolute';
-                ccDiv.style.top = '10%'; // Position % relative to the top of the container; adjust as needed
+                ccDiv.style.top = '0';
                 ccDiv.style.right = '0';
-                ccDiv.style.zIndex = '999'; // High z-index so it floats above everything else
+                ccDiv.style.zIndex = '999';
+                ccDiv.style.width = secondaryElement ? secondaryElement.offsetWidth + 'px' : '400px';
+                ccDiv.style.backgroundColor = 'white';
+                ccDiv.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
             } else {
                 console.log('Theater mode deactivated');
                 
                 const ccDiv = document.querySelector("#citation-controls");
-                ccDiv.removeAttribute('style');
                 const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
-                secondaryElement.insertBefore(ccDiv, secondaryElement.firstChild); // insertBefore moves the existing element
+                
+                ccDiv.removeAttribute('style');
+                ccDiv.style.width = secondaryElement ? secondaryElement.offsetWidth + 'px' : '400px';
+                secondaryElement.insertBefore(ccDiv, secondaryElement.firstChild);
             }
         }
     }
@@ -1642,39 +1649,43 @@ function createCitationElement(citation, userVote) {
             `<a href="https://youtube.com/@${citation.username.replace('@', '')}" target="_blank" class="username-link">${citation.username}</a>`;
         
         citationElement.innerHTML = `
-            <p><strong>Title:</strong> ${citation.citationTitle}</p>
-            <p><strong>Time Range:</strong> 
-                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
-                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
-            </p>
-            <p><strong>Added by:</strong> ${usernameDisplay}</p>
-            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-            }).format(new Date(citation.dateAdded))}</p>
-            <p><strong>Description:</strong> ${citation.description}</p>
-            ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
-            <div class="citation-controls">
-                <div class="vote-controls" data-citation-id="${citation.id}">
-                    <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
-                            title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                        <span class="vote-icon">▲</span>
-                    </button>
-                    <span class="vote-score">${citation.voteScore || 0}</span>
-                    <button class="vote-btn downvote-btn ${userVote === 'down' ? 'voted' : ''}" 
-                            title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                        <span class="vote-icon">▼</span>
-                    </button>
+            <div style="display: flex; flex-direction: column; min-height: 200px;">
+                <div style="flex: 1;">
+                    <p><strong>Title:</strong> ${citation.citationTitle}</p>
+                    <p><strong>Time Range:</strong> 
+                        <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
+                        <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
+                    </p>
+                    <p><strong>Added by:</strong> ${usernameDisplay}</p>
+                    <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }).format(new Date(citation.dateAdded))}</p>
+                    <p><strong>Description:</strong> ${citation.description}</p>
+                    ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
                 </div>
-                ${showDeleteButton ? `
-                    <button class="delete-citation-btn" title="Delete citation">
-                        <span class="delete-icon">🗑️</span>
-                    </button>
-                ` : ''}
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                    <div class="vote-controls" data-citation-id="${citation.id}">
+                        <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
+                                title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                            <span class="vote-icon">▲</span>
+                        </button>
+                        <span class="vote-score">${citation.voteScore || 0}</span>
+                        <button class="vote-btn downvote-btn ${userVote === 'down' ? 'voted' : ''}" 
+                                title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                            <span class="vote-icon">▼</span>
+                        </button>
+                    </div>
+                    ${showDeleteButton ? `
+                        <button class="action-btn delete-btn" title="Delete citation">
+                            Delete
+                        </button>
+                    ` : ''}
+                </div>
             </div>
         `;
 
@@ -1700,7 +1711,7 @@ function createCitationElement(citation, userVote) {
 
         // Add delete button event listener if it exists
         if (showDeleteButton) {
-            const deleteBtn = citationElement.querySelector('.delete-citation-btn');
+            const deleteBtn = citationElement.querySelector('.action-btn.delete-btn');
             deleteBtn.addEventListener('click', async () => {
                 if (confirm('Are you sure you want to delete this citation? This action cannot be undone.')) {
                     try {
@@ -1754,41 +1765,44 @@ function updateCitationsList(citations, container) {
 const style = document.createElement('style');
 style.textContent = `
     #citation-controls {
-        max-height: 60vh;
+        max-height: 80vh;
         display: flex;
         flex-direction: column;
         overflow-y: auto;
+        background-color: white;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
     }
     
     .citations-scroll-container,
     #citations-container,
     #citation-requests-container {
-        overflow: visible;
+        overflow-y: auto;
+        padding: 16px;
     }
 
     .section-header {
-        font-weight: bold;
-        padding: 10px 0;
+        font-weight: 500;
+        padding: 12px 16px;
         border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        margin-bottom: 10px;
+        margin-bottom: 16px;
         color: #030303;
         font-size: 14px;
         background-color: #f8f8f8;
-        padding-left: 10px;
         border-radius: 4px;
-    }
-
-    /* Add spacing between sections */
-    .section-header + .citation-item {
-        margin-top: 10px;
     }
 
     .citation-item {
-        margin-bottom: 15px;
-        padding: 10px;
+        margin-bottom: 16px;
+        padding: 16px;
         border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 4px;
+        border-radius: 8px;
         background-color: white;
+        transition: background-color 0.2s ease;
+    }
+
+    .citation-item:hover {
+        background-color: #f8f9fa;
     }
 
     .active-citation {
@@ -1796,138 +1810,45 @@ style.textContent = `
         background-color: #f8f9fa;
     }
 
-    /* Tutorial Tooltip */
-    .simple-tooltip {
-        position: absolute;
-        background: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 8px 12px;
-        border-radius: 4px;
-        font-size: 13px;
-        z-index: 10000;
-        max-width: 220px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(4px);
-    }
-
-    .simple-tooltip:after {
-        content: '';
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border: 6px solid transparent;
-        border-top-color: rgba(0, 0, 0, 0.9);
-    }
-
-    .simple-tooltip .extension-name {
-        color: #4285f4;
-        font-weight: 500;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-    
-    /* Recorded Segments Panel */
-    .recorded-segments-panel {
-        position: fixed;
-        right: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        background: transparent;
-        z-index: 9999;
-        display: flex;
-        transition: transform 0.3s ease;
-    }
-    
-    .recorded-segments-panel .toggle-btn {
-        width: 24px;
-        height: 60px;
-        background: rgba(33, 33, 33, 0.95);
-        border: none;
-        color: white;
-        cursor: pointer;
-        border-radius: 4px 0 0 4px;
+    .vote-controls {
         display: flex;
         align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        flex-shrink: 0;
-        z-index: 2;
-        position: absolute;
-        left: -24px;
-        top: 50%;
-        transform: translateY(-50%);
+        gap: 8px;
     }
-    
-    .recorded-segments-panel .panel-content {
-        background: rgba(33, 33, 33, 0.95);
-        border-radius: 4px 0 0 4px;
-        padding: 10px;
-        width: 300px;
-        max-height: 80vh;
-        overflow-y: auto;
-        color: white;
-    }
-    
-    .recorded-segments-panel.collapsed {
-        transform: translate(300px, -50%);
-    }
-    
-    .recorded-segments-panel.collapsed .toggle-btn {
-        transform: translate(0, -50%);
-    }
-    
-    .recorded-segments-panel h3 {
-        margin: 0 0 10px 0;
-        font-size: 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        padding-bottom: 5px;
-        color: #fff;
-        font-weight: 500;
-    }
-    
-    .recorded-segment {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-        padding: 8px;
-        margin-bottom: 8px;
-        font-size: 14px;
-    }
-    
-    .recorded-segment .time-range {
-        color: #fff;
-        text-decoration: none;
+
+    .vote-btn {
+        background: none;
+        border: none;
+        padding: 4px 8px;
         cursor: pointer;
-        font-weight: 500;
+        color: #606060;
+        transition: all 0.2s ease;
     }
-    
-    .recorded-segment .time-range:hover {
-        text-decoration: underline;
+
+    .vote-btn:hover {
+        color: #030303;
+    }
+
+    .vote-btn.voted {
         color: #1a73e8;
     }
-    
-    .recorded-segment .actions {
-        margin-top: 5px;
-        display: flex;
-        gap: 5px;
+
+    .vote-score {
+        font-weight: 500;
+        color: #606060;
     }
-    
-    .recorded-segment .actions button {
-        background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        color: white;
-        padding: 3px 8px;
-        border-radius: 3px;
+
+    .add-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 18px;
+        font-weight: 500;
         cursor: pointer;
-        font-size: 12px;
-        flex: 1;
+        transition: background-color 0.2s ease;
     }
-    
-    .recorded-segment .actions button:hover {
-        background: rgba(255, 255, 255, 0.1);
+
+    .add-btn:hover {
+        opacity: 0.9;
     }
 `;
 document.head.appendChild(style);
@@ -1971,34 +1892,38 @@ function createRequestElement(request) {
     requestElement.dataset.requestId = request.id;
     
     requestElement.innerHTML = `
-        <p><strong>Title:</strong> ${request.title || ''}</p>
-        <p><strong>Time Range:</strong> 
-            <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampStart)}">${request.timestampStart}</a> - 
-            <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</a>
-        </p>
-        <p><strong>Requested by:</strong> ${request.username}</p>
-        <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }).format(new Date(request.dateAdded))}</p>
-        <p><strong>Description:</strong> ${request.reason || ''}</p>
-        <div class="request-controls">
-            <div class="vote-controls" data-request-id="${request.id}">
-                <button class="upvote-btn ${request.userVote === 'up' ? 'voted' : ''}" title="Upvote">
-                    <span class="arrow">▲</span>
-                </button>
-                <span class="vote-score">${request.voteScore || 0}</span>
-                <button class="downvote-btn ${request.userVote === 'down' ? 'voted' : ''}" title="Downvote">
-                    <span class="arrow">▼</span>
+        <div style="display: flex; flex-direction: column; min-height: 200px;">
+            <div style="flex: 1;">
+                <p><strong>Title:</strong> ${request.title || ''}</p>
+                <p><strong>Time Range:</strong> 
+                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampStart)}">${request.timestampStart}</a> - 
+                    <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</a>
+                </p>
+                <p><strong>Requested by:</strong> ${request.username}</p>
+                <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                }).format(new Date(request.dateAdded))}</p>
+                <p><strong>Description:</strong> ${request.reason || ''}</p>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                <div class="vote-controls" data-request-id="${request.id}">
+                    <button class="vote-btn upvote-btn ${request.userVote === 'up' ? 'voted' : ''}" title="Upvote">
+                        <span class="vote-icon">▲</span>
+                    </button>
+                    <span class="vote-score">${request.voteScore || 0}</span>
+                    <button class="vote-btn downvote-btn ${request.userVote === 'down' ? 'voted' : ''}" title="Downvote">
+                        <span class="vote-icon">▼</span>
+                    </button>
+                </div>
+                <button class="action-btn respond-btn" title="Respond with Citation" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason || ''}" data-title="${request.title || ''}">
+                    Respond
                 </button>
             </div>
-            <button class="respond-btn" title="Respond with Citation" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason || ''}" data-title="${request.title || ''}">
-                Respond
-            </button>
         </div>
     `;
 
