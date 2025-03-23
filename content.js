@@ -18,12 +18,14 @@ window.respondWithCitation = function(start, end, reason, title = '') {
             const startField = form.querySelector('#timestampStart');
             const endField = form.querySelector('#timestampEnd');
             const descriptionField = form.querySelector('#description');
+            const sourceField = form.querySelector('#source');
 
             // Set values if the fields exist
             if (titleField) titleField.value = title;
             if (startField) startField.value = start;
             if (endField) endField.value = end;
             if (descriptionField) descriptionField.value = reason;
+            if (sourceField) sourceField.value = '';
 
             // Focus on title if empty, otherwise on description
             if (title) {
@@ -577,26 +579,18 @@ async function setupFormListeners() {
             e.preventDefault();
             const videoId = new URLSearchParams(window.location.search).get('v');
             
-            // Validate timestamp format
-            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
-            const startTime = form.timestampStart.value;
-            const endTime = form.timestampEnd.value;
-
-            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
-                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
-                return;
-            }
-
-            // Compare timestamps
-            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-
-            if (startSeconds >= endSeconds) {
-                alert('Start timestamp must be less than end timestamp');
-                return;
-            }
-            
             try {
+                // Get video duration
+                const videoDuration = Math.floor(player.duration);
+                if (!videoDuration) {
+                    throw new Error('Could not determine video duration. Please try again.');
+                }
+
+                // Validate timestamps
+                const startTime = form.timestampStart.value;
+                const endTime = form.timestampEnd.value;
+                const { startSeconds, endSeconds } = validateTimestamps(startTime, endTime, videoDuration);
+                
                 // Get username based on checkbox state
                 const username = await getYouTubeUsername();
                 const anonymousCheckbox = document.getElementById('anonymous');
@@ -604,15 +598,14 @@ async function setupFormListeners() {
                 
                 const citationData = {
                     videoId,
-                    citationTitle: form.citationTitle.value,
+                    citationTitle: form.citationTitle.value.trim(),
                     timestampStart: startTime,
                     timestampEnd: endTime,
-                    description: form.description.value,
+                    description: form.description.value.trim(),
+                    source: form.source.value.trim(),
                     username: isAnonymous ? 'Anonymous' : username,
                     dateAdded: new Date().toISOString()
                 };
-                
-                console.log('Submitting citation:', citationData); // Debug log
 
                 const response = await chrome.runtime.sendMessage({
                     type: 'addCitation',
@@ -628,7 +621,7 @@ async function setupFormListeners() {
                 }
             } catch (error) {
                 console.error("Error adding citation:", error);
-                alert('Error adding citation. Please try again.');
+                alert(error.message || 'Error adding citation. Please try again.');
             }
         });
     }
@@ -640,40 +633,29 @@ async function setupFormListeners() {
             e.preventDefault();
             const videoId = new URLSearchParams(window.location.search).get('v');
             
-            // Validate timestamp format
-            const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
-            const startTime = requestForm.timestampStart.value;
-            const endTime = requestForm.timestampEnd.value;
-
-            if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
-                alert('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
-                return;
-            }
-
-            // Compare timestamps
-            const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-            const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
-
-            if (startSeconds >= endSeconds) {
-                alert('Start timestamp must be less than end timestamp');
-                return;
-            }
-            
             try {
-                // Always submit requests as anonymous
+                // Get video duration
+                const videoDuration = Math.floor(player.duration);
+                if (!videoDuration) {
+                    throw new Error('Could not determine video duration. Please try again.');
+                }
+
+                // Validate timestamps
+                const startTime = requestForm.timestampStart.value;
+                const endTime = requestForm.timestampEnd.value;
+                const { startSeconds, endSeconds } = validateTimestamps(startTime, endTime, videoDuration);
+                
                 const requestData = {
                     videoId,
-                    title: requestForm.title.value,
+                    title: requestForm.title.value.trim(),
                     timestampStart: startTime,
                     timestampEnd: endTime,
-                    reason: requestForm.reason.value,
+                    reason: requestForm.reason.value.trim(),
                     username: 'Anonymous',
-                    dateAdded: new Date().toISOString(), // Match citation field name
-                    voteScore: 0 // Initialize vote score like citations
+                    dateAdded: new Date().toISOString(),
+                    voteScore: 0
                 };
 
-                console.log('Submitting request with data:', requestData);
-                
                 const response = await chrome.runtime.sendMessage({
                     type: 'addRequest',
                     data: requestData
@@ -682,20 +664,43 @@ async function setupFormListeners() {
                 if (response.success) {
                     alert('Citation request submitted successfully!');
                     requestForm.reset();
-                    // Refresh the requests list if it's visible
-                    const requestsContainer = document.getElementById('citation-requests-container');
-                    if (requestsContainer) {
-                        loadCitationRequests();
-                    }
+                    loadCitationRequests();
                 } else {
                     throw new Error(response.error);
                 }
             } catch (error) {
                 console.error("Error submitting citation request:", error);
-                alert('Error submitting request. Please try again.');
+                alert(error.message || 'Error submitting request. Please try again.');
             }
         });
     }
+}
+
+// Function to validate timestamps
+function validateTimestamps(startTime, endTime, videoDuration) {
+    const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+    
+    // Check format
+    if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
+        throw new Error('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
+    }
+
+    // Convert timestamps to seconds
+    const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+    const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+    
+    // Check if start is before end
+    if (startSeconds >= endSeconds) {
+        throw new Error('Start timestamp must be less than end timestamp');
+    }
+
+    // Check if end timestamp exceeds video duration
+    if (endSeconds > videoDuration) {
+        const durationFormatted = formatTime(Math.floor(videoDuration));
+        throw new Error(`End timestamp cannot exceed video duration (${durationFormatted})`);
+    }
+
+    return { startSeconds, endSeconds };
 }
 
 // Handle voting on requests
@@ -1243,6 +1248,9 @@ function showAddForm(isRequestsTab) {
             <div class="form-group">
                 <textarea id="reason-input" class="form-textarea" placeholder="${isRequestsTab ? 'Reason for Request' : 'Description'}" required></textarea>
             </div>
+            <div class="form-group">
+                <input type="text" id="source-input" class="form-input" placeholder="Source URL" required>
+            </div>
             <div class="form-actions">
                 <button type="button" id="cancel-btn" class="cancel-btn">Cancel</button>
                 <button type="submit" class="submit-btn">${isRequestsTab ? 'Submit Request' : 'Add Citation'}</button>
@@ -1312,6 +1320,7 @@ function createCitationElement(citation, userVote) {
             hour12: true
         }).format(new Date(citation.dateAdded))}</p>
         <p><strong>Description:</strong> ${citation.description}</p>
+        ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
         <div class="vote-controls" data-citation-id="${citation.id}">
             <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
                     title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
