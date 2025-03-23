@@ -1,5 +1,5 @@
 // Wait for YouTube page to be ready
-window.respondWithCitation = function(start, end, reason) {
+window.respondWithCitation = function(start, end, reason, title = '') {
     // Switch to citations tab first
     document.getElementById('citations-btn').click();
     
@@ -13,10 +13,25 @@ window.respondWithCitation = function(start, end, reason) {
     loadPage("youtube_extension_citation.html", "add-form-container", () => {
         const form = document.getElementById('citation-form');
         if (form) {
-            form.timestampStart.value = start;
-            form.timestampEnd.value = end;
-            form.description.value = `Response to: ${reason}`;
-            form.citationTitle.focus();
+            // Get form field elements
+            const titleField = form.querySelector('#citationTitle');
+            const startField = form.querySelector('#timestampStart');
+            const endField = form.querySelector('#timestampEnd');
+            const descriptionField = form.querySelector('#description');
+
+            // Set values if the fields exist
+            if (titleField) titleField.value = title;
+            if (startField) startField.value = start;
+            if (endField) endField.value = end;
+            if (descriptionField) descriptionField.value = reason;
+
+            // Focus on title if empty, otherwise on description
+            if (title) {
+                descriptionField?.focus();
+            } else {
+                titleField?.focus();
+            }
+
             initializeCitationForm();
         }
     });
@@ -587,27 +602,12 @@ async function setupFormListeners() {
                 const anonymousCheckbox = document.getElementById('anonymous');
                 const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
                 
-                const sourceUrl = form.source.value.trim();
-                let validatedSource = null;
-                if (sourceUrl !== '') {
-                    try {
-                        const url = new URL(sourceUrl);
-                        validatedSource = url.toString(); // Use full URL string
-                    } catch (e) {
-                        alert('Please enter a valid URL for the source');
-                        return;
-                    }
-                }
-
-                console.log('Source URL:', validatedSource); // Debug log
-
                 const citationData = {
                     videoId,
                     citationTitle: form.citationTitle.value,
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     description: form.description.value,
-                    source: validatedSource,
                     username: isAnonymous ? 'Anonymous' : username,
                     dateAdded: new Date().toISOString()
                 };
@@ -1091,7 +1091,7 @@ async function loadCitationRequests() {
         }
 
         const requests = requestsResponse.requests || [];
-        console.log('Received requests:', requests); // Debug log
+        console.log('Received requests from backend:', requests); // Debug log for request data
         
         // Validate dateAdded fields
         requests.forEach(request => {
@@ -1184,10 +1184,13 @@ async function handleVote(itemId, voteType, itemType = 'citation') {
 // Add event listener for respond button
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('respond-btn')) {
-        const start = e.target.dataset.start;
-        const end = e.target.dataset.end;
-        const reason = e.target.dataset.reason;
-        window.respondWithCitation(start, end, reason);
+        const button = e.target;
+        window.respondWithCitation(
+            button.dataset.start,
+            button.dataset.end,
+            `Response to request: ${button.dataset.reason || ''}`,
+            button.dataset.title || ''
+        );
     }
 });
 
@@ -1309,9 +1312,6 @@ function createCitationElement(citation, userVote) {
             hour12: true
         }).format(new Date(citation.dateAdded))}</p>
         <p><strong>Description:</strong> ${citation.description}</p>
-        <p><strong>Source:</strong> ${citation.source ? 
-            `<a href="${citation.source}" target="_blank" rel="noopener noreferrer">${citation.source}</a>` : 
-            'N/A'}</p>
         <div class="vote-controls" data-citation-id="${citation.id}">
             <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
                     title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
@@ -1373,15 +1373,65 @@ const style = document.createElement('style');
 style.textContent = `
     .citation-item {
         padding: 10px;
-        margin: 5px 0;
-        border: 1px solid #ddd;
+        margin: 10px 0;
+        border: 1px solid #ccc;
         border-radius: 4px;
-        transition: all 0.3s ease;
+        background-color: #f9f9f9;
     }
-    .active-citation {
-        background-color: #e3f2fd;
-        border-color: #2196f3;
-        box-shadow: 0 2px 4px rgba(33, 150, 243, 0.1);
+
+    .vote-controls {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .upvote-btn, .downvote-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 2px 5px;
+        color: #666;
+    }
+
+    .upvote-btn:hover, .downvote-btn:hover {
+        color: #000;
+    }
+
+    .upvote-btn.voted {
+        color: #4CAF50;
+    }
+
+    .downvote-btn.voted {
+        color: #f44336;
+    }
+
+    .vote-score {
+        font-weight: bold;
+        min-width: 20px;
+        text-align: center;
+    }
+
+    .request-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 10px;
+        gap: 10px;
+    }
+
+    .respond-btn {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 5px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.2s;
+    }
+
+    .respond-btn:hover {
+        background-color: #45a049;
     }
 `;
 document.head.appendChild(style);
@@ -1423,7 +1473,7 @@ function createRequestElement(request) {
     requestElement.dataset.requestId = request.id;
     
     requestElement.innerHTML = `
-        <p><strong>Title:</strong> ${request.citationTitle}</p>
+        <p><strong>Title:</strong> ${request.title || ''}</p>
         <p><strong>Time Range:</strong> 
             <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampStart)}">${request.timestampStart}</a> - 
             <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</a>
@@ -1437,17 +1487,19 @@ function createRequestElement(request) {
             minute: '2-digit',
             hour12: true
         }).format(new Date(request.dateAdded))}</p>
-        <p><strong>Description:</strong> ${request.description}</p>
-        <p><strong>Source:</strong> ${request.source ? 
-            `<a href="${request.source}" target="_blank" rel="noopener noreferrer">${request.source}</a>` : 
-            'N/A'}</p>
-        <div class="vote-controls" data-request-id="${request.id}">
-            <button class="upvote-btn ${request.userVote === 'up' ? 'voted' : ''}" title="Upvote">
-                <span class="arrow">▲</span>
-            </button>
-            <span class="vote-score">${request.voteScore || 0}</span>
-            <button class="downvote-btn ${request.userVote === 'down' ? 'voted' : ''}" title="Downvote">
-                <span class="arrow">▼</span>
+        <p><strong>Description:</strong> ${request.reason || ''}</p>
+        <div class="request-controls">
+            <div class="vote-controls" data-request-id="${request.id}">
+                <button class="upvote-btn ${request.userVote === 'up' ? 'voted' : ''}" title="Upvote">
+                    <span class="arrow">▲</span>
+                </button>
+                <span class="vote-score">${request.voteScore || 0}</span>
+                <button class="downvote-btn ${request.userVote === 'down' ? 'voted' : ''}" title="Downvote">
+                    <span class="arrow">▼</span>
+                </button>
+            </div>
+            <button class="respond-btn" title="Respond with Citation" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason || ''}" data-title="${request.title || ''}">
+                Respond
             </button>
         </div>
     `;
@@ -1467,9 +1519,20 @@ function createRequestElement(request) {
     // Add event listeners for voting buttons
     const upvoteBtn = requestElement.querySelector('.upvote-btn');
     const downvoteBtn = requestElement.querySelector('.downvote-btn');
+    const respondBtn = requestElement.querySelector('.respond-btn');
 
     upvoteBtn.addEventListener('click', () => handleVote(request.id, 'up', 'request'));
     downvoteBtn.addEventListener('click', () => handleVote(request.id, 'down', 'request'));
+    respondBtn.addEventListener('click', (e) => {
+        console.log('Request data:', request); 
+        const button = e.target;
+        window.respondWithCitation(
+            button.dataset.start,
+            button.dataset.end,
+            `Response to request: ${button.dataset.reason || ''}`,
+            button.dataset.title || ''
+        );
+    });
 
     return requestElement;
 }
