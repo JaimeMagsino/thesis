@@ -1293,8 +1293,8 @@ async function handleVote(itemId, voteType, itemType = 'citation') {
             const scoreElement = voteControls.querySelector('.vote-score');
 
             // Update vote buttons
-            upvoteBtn.classList.toggle('active', response.newVote === 'up');
-            downvoteBtn.classList.toggle('active', response.newVote === 'down');
+            upvoteBtn.classList.toggle('voted', response.newVote === 'up');
+            downvoteBtn.classList.toggle('voted', response.newVote === 'down');
 
             // Update vote score
             if (scoreElement) {
@@ -1454,12 +1454,12 @@ function createCitationElement(citation, userVote) {
         <p><strong>Description:</strong> ${citation.description}</p>
         ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
         <div class="vote-controls" data-citation-id="${citation.id}">
-            <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
+            <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
                     title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
                 <span class="vote-icon">▲</span>
             </button>
             <span class="vote-score">${citation.voteScore || 0}</span>
-            <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
+            <button class="vote-btn downvote-btn ${userVote === 'down' ? 'voted' : ''}" 
                     title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
                 <span class="vote-icon">▼</span>
             </button>
@@ -1632,6 +1632,8 @@ function updateRequestsList(requests, container) {
     }
 
     requests.forEach(request => {
+        // Add user's vote to the request object
+        request.userVote = userVotes[request.id];
         const requestElement = createRequestElement(request);
         fragment.appendChild(requestElement);
     });
