@@ -1618,13 +1618,18 @@ function createCitationElement(citation, userVote) {
         const currentUsername = result.youtubeUsername;
         const showDeleteButton = currentUsername && currentUsername === citation.username;
         
+        // Create username display with link if not anonymous
+        const usernameDisplay = citation.username === 'Anonymous' ? 
+            'Anonymous' : 
+            `<a href="https://youtube.com/@${citation.username.replace('@', '')}" target="_blank" class="username-link">${citation.username}</a>`;
+        
         citationElement.innerHTML = `
             <p><strong>Title:</strong> ${citation.citationTitle}</p>
             <p><strong>Time Range:</strong> 
                 <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
                 <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
             </p>
-            <p><strong>Added by:</strong> ${citation.username}</p>
+            <p><strong>Added by:</strong> ${usernameDisplay}</p>
             <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
                 year: 'numeric',
                 month: 'short',
