@@ -127,7 +127,7 @@ function insertCitationButtons() {
                     <span class="sort-icon">
                         <svg viewBox="0 0 24 24" width="24" height="24">
                         <path d="M21,6H3V5h18V6z M15,11H3v1h12V11z M9,17H3v1h6V17z" fill="currentColor"></path>
-                    </svg>
+                   svg>
                     </span>
                     <span class="sort-text">Sort by</span>
                     <span class="sort-caret">
@@ -258,6 +258,10 @@ function setupRecordButtons() {
     const playerControls = document.querySelector('.ytp-left-controls');
     if (!playerControls || document.querySelector('.record-start-btn')) return;
 
+    // Find the timestamp element
+    const timestamp = playerControls.querySelector('.ytp-time-display');
+    if (!timestamp) return;
+
     // Create start record button
     const startRecordBtn = document.createElement('button');
     startRecordBtn.className = 'ytp-button record-start-btn';
@@ -287,36 +291,9 @@ function setupRecordButtons() {
         </div>
     `;
 
-    // Add CSS for the new buttons
-    const style = document.createElement('style');
-    style.textContent = `
-        .citation-record-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2px;
-            border-radius: 4px;
-            background: rgba(0, 0, 0, 0.6);
-            margin: 0 4px;
-            border: 1px solid rgba(255, 0, 0, 0.5);
-        }
-        
-        .record-start-btn.recording-active .citation-record-btn {
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 0, 0, 0.5); }
-            50% { background: rgba(255, 0, 0, 0.2); border-color: rgba(255, 0, 0, 0.8); }
-            100% { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 0, 0, 0.5); }
-        }
-
-        .citation-record-btn:hover {
-            background: rgba(255, 0, 0, 0.2);
-            border-color: rgba(255, 0, 0, 0.8);
-        }
-    `;
-    document.head.appendChild(style);
+    // Insert buttons right after the timestamp
+    timestamp.insertAdjacentElement('afterend', startRecordBtn);
+    timestamp.insertAdjacentElement('afterend', endRecordBtn);
 
     let recordStartTime = null;
 
@@ -338,22 +315,6 @@ function setupRecordButtons() {
         }
         recordStartTime = null;
     });
-
-    // Insert buttons after the play button in the left controls
-    const playButton = playerControls.querySelector('.ytp-play-button');
-    if (playButton) {
-        const nextSibling = playButton.nextSibling;
-        if (nextSibling) {
-            playerControls.insertBefore(endRecordBtn, nextSibling);
-            playerControls.insertBefore(startRecordBtn, endRecordBtn);
-        } else {
-            playerControls.appendChild(startRecordBtn);
-            playerControls.appendChild(endRecordBtn);
-        }
-    } else {
-        playerControls.appendChild(startRecordBtn);
-        playerControls.appendChild(endRecordBtn);
-    }
 }
 
 // Function to create and manage recorded segments panel
@@ -568,6 +529,7 @@ function showQuickTaskButtons(startTime, endTime) {
 }
 
 function init() {
+    console.log('Initializing extension...');
     insertCitationButtons();
     observeTheaterMode();
     
@@ -636,7 +598,7 @@ async function getYouTubeUsername() {
 
         // Method 2: Try to get from the page without opening menu
         const possibleElements = [
-            document.querySelector("ytd-guide-entry-renderer[line-end-style='handle'] #guide-entry-title"),
+            document.querySelector("ytd-guide-entry-renderer#line-end-style='handle'] #guide-entry-title"),
             document.querySelector('yt-formatted-string#channel-handle'),
             document.querySelector('[id="channel-handle"]')
         ];
@@ -1557,6 +1519,40 @@ function updateCitationsList(citations, container) {
 // Add CSS for highlighting and recorded segments panel
 const style = document.createElement('style');
 style.textContent = `
+    /* Tutorial Tooltip */
+    .simple-tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        z-index: 10000;
+        max-width: 220px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(4px);
+    }
+
+    .simple-tooltip:after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: rgba(0, 0, 0, 0.9);
+    }
+
+    .simple-tooltip .extension-name {
+        color: #4285f4;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    
     /* Recorded Segments Panel */
     .recorded-segments-panel {
         position: fixed;
@@ -1872,3 +1868,240 @@ function updateHighlighting() {
         }
     }
 }
+
+// Function to show simple tooltip
+function showSimpleTooltip() {
+    console.log('Attempting to show tooltip...');
+    
+    // Prevent multiple tooltips
+    if (document.querySelector('.simple-tooltip')) {
+        console.log('Tooltip already exists, skipping');
+        return;
+    }
+    
+    // Wait for both player and record button to be available
+    const checkForElements = setInterval(() => {
+        const recordBtn = document.querySelector('.record-start-btn');
+        const player = getPlayer();
+        console.log('Checking for elements:', {
+            recordBtn: recordBtn ? 'found' : 'not found',
+            player: player ? 'found' : 'not found'
+        });
+        
+        if (recordBtn && player) {
+            clearInterval(checkForElements);
+            console.log('Elements found, creating tooltip');
+            
+            // Create tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = 'simple-tooltip';
+            tooltip.innerHTML = `
+                <span class="extension-name">Citation Tool:</span> 
+                Click to record important video segments
+            `;
+            
+            // Add to page first so we can get dimensions
+            document.body.appendChild(tooltip);
+            console.log('Tooltip added to page');
+            
+            // Function to update tooltip position
+            const updateTooltipPosition = () => {
+                const btnRect = recordBtn.getBoundingClientRect();
+                const playerRect = player.getBoundingClientRect();
+                const tooltipRect = tooltip.getBoundingClientRect();
+                
+                // Calculate position
+                const isTheaterMode = document.documentElement.classList.contains('ytd-watch-flexy');
+                const offset = isTheaterMode ? 0 : playerRect.left;
+                
+                tooltip.style.position = 'fixed';
+                tooltip.style.left = `${offset + btnRect.left + (btnRect.width / 2)}px`;
+                tooltip.style.top = `${btnRect.top - tooltipRect.height - 8}px`;
+                tooltip.style.transform = 'translateX(-50%)';
+            };
+
+            // Update position initially and on resize/theater mode change
+            updateTooltipPosition();
+            window.addEventListener('resize', updateTooltipPosition);
+            
+            // Watch for theater mode changes
+            const observer = new MutationObserver(() => {
+                updateTooltipPosition();
+            });
+            
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+            
+            // Show tooltip immediately
+            requestAnimationFrame(() => {
+                tooltip.style.opacity = '1';
+                console.log('Tooltip fade in');
+            });
+            
+            // Remove after delay
+            setTimeout(() => {
+                tooltip.style.opacity = '0';
+                console.log('Tooltip fade out');
+                setTimeout(() => {
+                    tooltip.remove();
+                    observer.disconnect();
+                    window.removeEventListener('resize', updateTooltipPosition);
+                    console.log('Tooltip removed');
+                }, 300);
+            }, 3000);
+        }
+    }, 500);
+
+    // Clear interval if elements not found
+    setTimeout(() => {
+        clearInterval(checkForElements);
+        console.log('Tooltip check timed out');
+    }, 10000);
+}
+
+// Update tooltip styles
+const tooltipStyles = `
+    .simple-tooltip {
+        position: fixed;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        z-index: 9999999;
+        max-width: 220px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease, transform 0.2s ease;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(4px);
+        will-change: transform;
+    }
+
+    .simple-tooltip:after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: rgba(0, 0, 0, 0.9);
+    }
+
+    .simple-tooltip .extension-name {
+        color: #4285f4;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+`;
+
+// Add CSS for the new buttons
+const buttonStyles = `
+    .citation-record-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.6);
+        margin: 0 4px;
+        border: 1px solid rgba(255, 0, 0, 0.5);
+    }
+    
+    .record-start-btn.recording-active .citation-record-btn {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 0, 0, 0.5); }
+        50% { background: rgba(255, 0, 0, 0.2); border-color: rgba(255, 0, 0, 0.8); }
+        100% { background: rgba(0, 0, 0, 0.6); border-color: rgba(255, 0, 0, 0.5); }
+    }
+
+    .citation-record-btn:hover {
+        background: rgba(255, 0, 0, 0.2);
+        border-color: rgba(255, 0, 0, 0.8);
+    }
+`;
+
+// Call showSimpleTooltip when a new video loads
+function onVideoLoad() {
+    console.log('Video loaded, scheduling tooltip');
+    // Wait for player to be ready
+    const waitForPlayer = setInterval(() => {
+        const player = getPlayer();
+        if (player) {
+            clearInterval(waitForPlayer);
+            setTimeout(showSimpleTooltip, 1500);
+        }
+    }, 500);
+    
+    // Clear interval after 10 seconds if player not found
+    setTimeout(() => clearInterval(waitForPlayer), 10000);
+}
+
+// Update the init function to ensure player is ready
+function init() {
+    console.log('Initializing extension...');
+    
+    // Wait for player to be ready before initializing
+    const waitForPlayer = setInterval(() => {
+        const player = getPlayer();
+        if (player) {
+            clearInterval(waitForPlayer);
+            console.log('Player ready, initializing features');
+            insertCitationButtons();
+            observeTheaterMode();
+            
+            // Initialize forms if they exist
+            const citationForm = document.getElementById('citation-form');
+            if (citationForm) {
+                initializeCitationForm();
+            }
+            const requestForm = document.getElementById('request-form');
+            if (requestForm) {
+                initializeRequestForm();
+            }
+        }
+    }, 500);
+    
+    // Clear interval after 10 seconds if player not found
+    setTimeout(() => clearInterval(waitForPlayer), 10000);
+}
+
+// Function to get YouTube player
+function getPlayer() {
+    const player = document.querySelector('#movie_player');
+    return player;
+}
+
+// Listen for video navigation
+let lastUrl = location.href;
+const observer = new MutationObserver(() => {
+    const currentUrl = location.href;
+    if (currentUrl !== lastUrl) {
+        console.log('URL changed from', lastUrl, 'to', currentUrl);
+        lastUrl = currentUrl;
+        if (currentUrl.includes('youtube.com/watch')) {
+            console.log('New video detected, triggering tooltip');
+            onVideoLoad();
+        }
+    }
+});
+
+// Start observing
+observer.observe(document, { subtree: true, childList: true });
+
+// Show on initial page load if it's a video
+if (location.href.includes('youtube.com/watch')) {
+    console.log('Initial video page load detected');
+    onVideoLoad();
+}
+
+// Add the styles to the page
+const styleEl = document.createElement('style');
+styleEl.textContent = buttonStyles + tooltipStyles;
+document.head.appendChild(styleEl);
