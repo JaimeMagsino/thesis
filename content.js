@@ -329,6 +329,7 @@ function setupRecordedSegmentsPanel() {
     if (!panel) {
         panel = document.createElement('div');
         panel.className = 'recorded-segments-panel collapsed';
+        panel.style.display = 'none'; // Initially hidden
         panel.innerHTML = `
             <button class="toggle-btn">◀</button>
             <div class="panel-content">
@@ -348,9 +349,19 @@ function setupRecordedSegmentsPanel() {
     return panel;
 }
 
+// Function to check if segments container is empty and hide panel if needed
+function checkAndHidePanel() {
+    const panel = document.querySelector('.recorded-segments-panel');
+    const container = panel?.querySelector('.segments-container');
+    if (panel && container && container.children.length === 0) {
+        panel.style.display = 'none';
+    }
+}
+
 // Function to add a new recorded segment
 function addRecordedSegment(startTime, endTime) {
     const panel = setupRecordedSegmentsPanel();
+    panel.style.display = ''; // Show panel when adding new segment
     const container = panel.querySelector('.segments-container');
     const segment = document.createElement('div');
     segment.className = 'recorded-segment';
@@ -417,6 +428,7 @@ function addRecordedSegment(startTime, endTime) {
 
     segment.querySelector('.delete-btn').addEventListener('click', () => {
         segment.remove();
+        checkAndHidePanel();
     });
 
     container.appendChild(segment);
