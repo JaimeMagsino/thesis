@@ -122,7 +122,6 @@ function insertCitationButtons() {
         </div>
         <div class="header-actions">
             <button id="add-item-btn" class="add-btn">+ Add Citation</button>
-            <button id="record-btn" class="action-btn">Start Record</button>
             <div class="sort-container">
                 <button class="sort-button">
                     <span class="sort-icon">
@@ -251,35 +250,168 @@ function insertCitationButtons() {
     });
 
     // Initialize the record button functionality
-    setupRecordButton();
+    setupRecordButtons();
 }
 
-// Setup Record Button to toggle recording and capture timestamps
-function setupRecordButton() {
-    const recordBtn = document.getElementById('record-btn');
-    if (!recordBtn) return;
-    
-    let isRecording = false;
+// Setup Record Buttons to toggle recording and capture timestamps
+function setupRecordButtons() {
+    const playerControls = document.querySelector('.ytp-right-controls');
+    if (!playerControls || document.querySelector('.record-start-btn')) return;
+
+    // Create start record button
+    const startRecordBtn = document.createElement('button');
+    startRecordBtn.className = 'ytp-button record-start-btn';
+    startRecordBtn.title = 'Start Recording';
+    startRecordBtn.innerHTML = `
+        <svg height="100%" viewBox="0 0 36 36" width="100%">
+            <circle cx="18" cy="18" r="10" fill="#ff0000"/>
+        </svg>
+    `;
+
+    // Create end record button (initially hidden)
+    const endRecordBtn = document.createElement('button');
+    endRecordBtn.className = 'ytp-button record-end-btn';
+    endRecordBtn.title = 'End Recording';
+    endRecordBtn.style.display = 'none';
+    endRecordBtn.innerHTML = `
+        <svg height="100%" viewBox="0 0 36 36" width="100%">
+            <path d="M 13 13 L 23 23 M 13 23 L 23 13" stroke="#ff0000" stroke-width="2"/>
+        </svg>
+    `;
+
     let recordStartTime = null;
-    
-    recordBtn.addEventListener('click', () => {
-        if (!isRecording) {
-            // Start recording: capture the current video time as start timestamp
-            isRecording = true;
-            const currentTimeSec = Math.floor(player.currentTime);
-            recordStartTime = formatTime(currentTimeSec);
-            console.log('Recording started at:', recordStartTime);
-            recordBtn.textContent = 'End Record';
-        } else {
-            // End recording: capture the current video time as end timestamp
-            const recordEndTime = formatTime(Math.floor(player.currentTime));
-            isRecording = false;
-            recordBtn.textContent = 'Start Record';
-            console.log('Recording ended at:', recordEndTime);
-            // Display the quick task buttons with the recorded timestamps
-            showQuickTaskButtons(recordStartTime, recordEndTime);
-        }
+
+    startRecordBtn.addEventListener('click', () => {
+        recordStartTime = player.currentTime;
+        startRecordBtn.style.display = 'none';
+        endRecordBtn.style.display = '';
+        startRecordBtn.classList.add('recording-active');
     });
+
+    endRecordBtn.addEventListener('click', () => {
+        const recordEndTime = player.currentTime;
+        startRecordBtn.style.display = '';
+        endRecordBtn.style.display = 'none';
+        startRecordBtn.classList.remove('recording-active');
+        
+        if (recordStartTime !== null && recordEndTime > recordStartTime) {
+            addRecordedSegment(recordStartTime, recordEndTime);
+        }
+        recordStartTime = null;
+    });
+
+    // Insert buttons before the autoplay button
+    const autoplayBtn = playerControls.querySelector('.ytp-button[data-tooltip-target-id="ytp-autonav-toggle-button"]');
+    if (autoplayBtn) {
+        playerControls.insertBefore(endRecordBtn, autoplayBtn);
+        playerControls.insertBefore(startRecordBtn, endRecordBtn);
+    } else {
+        playerControls.appendChild(endRecordBtn);
+        playerControls.appendChild(startRecordBtn);
+    }
+}
+
+// Function to create and manage recorded segments panel
+function setupRecordedSegmentsPanel() {
+    // Create panel if it doesn't exist
+    let panel = document.querySelector('.recorded-segments-panel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.className = 'recorded-segments-panel collapsed';
+        panel.innerHTML = `
+            <button class="toggle-btn">◀</button>
+            <div class="panel-content">
+                <h3>Recorded Segments</h3>
+                <div class="segments-container"></div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+
+        // Setup toggle button
+        const toggleBtn = panel.querySelector('.toggle-btn');
+        toggleBtn.addEventListener('click', () => {
+            panel.classList.toggle('collapsed');
+            toggleBtn.textContent = panel.classList.contains('collapsed') ? '▶' : '◀';
+        });
+    }
+    return panel;
+}
+
+// Function to add a new recorded segment
+function addRecordedSegment(startTime, endTime) {
+    const panel = setupRecordedSegmentsPanel();
+    const container = panel.querySelector('.segments-container');
+    const segment = document.createElement('div');
+    segment.className = 'recorded-segment';
+    
+    const formattedStart = formatTime(Math.floor(startTime));
+    const formattedEnd = formatTime(Math.floor(endTime));
+    
+    segment.innerHTML = `
+        <div class="time-range">${formattedStart} - ${formattedEnd}</div>
+        <div class="actions">
+            <button class="cite-btn">Add Citation</button>
+            <button class="request-btn">Add Request</button>
+            <button class="delete-btn">Delete</button>
+        </div>
+    `;
+
+    // Add event listeners
+    segment.querySelector('.time-range').addEventListener('click', () => {
+        player.currentTime = startTime;
+    });
+
+    segment.querySelector('.cite-btn').addEventListener('click', () => {
+        document.getElementById('citations-btn').click();
+        document.getElementById('add-item-btn').click();
+        // Wait for form to load
+        setTimeout(() => {
+            const form = document.getElementById('citation-form');
+            if (form) {
+                form.timestampStart.value = formattedStart;
+                form.timestampEnd.value = formattedEnd;
+                form.citationTitle.focus();
+                console.log('Citation form loaded with start:', formattedStart, 'and end:', formattedEnd);
+                initializeCitationForm();
+            } else {
+                console.error("Citation form not found!");
+            }
+        }, 100);
+        // Collapse panel to show form
+        panel.classList.add('collapsed');
+        const toggleBtn = document.querySelector('.toggle-btn');
+        if (toggleBtn) toggleBtn.textContent = '▶';
+    });
+
+    segment.querySelector('.request-btn').addEventListener('click', () => {
+        document.getElementById('citation-requests-btn').click();
+        document.getElementById('add-item-btn').click();
+        // Wait for form to load
+        setTimeout(() => {
+            const form = document.getElementById('request-form');
+            if (form) {
+                form.timestampStart.value = formattedStart;
+                form.timestampEnd.value = formattedEnd;
+                form.reason.focus();
+                console.log('Request form loaded with start:', formattedStart, 'and end:', formattedEnd);
+            } else {
+                console.error("Request form not found!");
+            }
+        }, 100);
+        // Collapse panel to show form
+        panel.classList.add('collapsed');
+        const toggleBtn = document.querySelector('.toggle-btn');
+        if (toggleBtn) toggleBtn.textContent = '▶';
+    });
+
+    segment.querySelector('.delete-btn').addEventListener('click', () => {
+        segment.remove();
+    });
+
+    container.appendChild(segment);
+    panel.classList.remove('collapsed');
+    const toggleBtn = document.querySelector('.toggle-btn');
+    if (toggleBtn) toggleBtn.textContent = '◀';
 }
 
 // Utility function to format seconds into HH:MM:SS
@@ -1377,70 +1509,104 @@ function updateCitationsList(citations, container) {
     container.appendChild(fragment);
 }
 
-// Add CSS for highlighting
+// Add CSS for highlighting and recorded segments panel
 const style = document.createElement('style');
 style.textContent = `
-    .citation-item {
-        padding: 10px;
-        margin: 10px 0;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        background-color: #f9f9f9;
+    /* Recorded Segments Panel */
+    .recorded-segments-panel {
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        z-index: 9999;
+        display: flex;
+        transition: transform 0.3s ease;
     }
-
-    .vote-controls {
+    
+    .recorded-segments-panel .toggle-btn {
+        width: 24px;
+        height: 60px;
+        background: rgba(33, 33, 33, 0.95);
+        border: none;
+        color: white;
+        cursor: pointer;
+        border-radius: 4px 0 0 4px;
         display: flex;
         align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+        z-index: 2;
+    }
+    
+    .recorded-segments-panel .panel-content {
+        background: rgba(33, 33, 33, 0.95);
+        border-radius: 4px 0 0 4px;
+        padding: 10px;
+        width: 300px;
+        max-height: 80vh;
+        overflow-y: auto;
+        color: white;
+        margin-left: -4px; /* Overlap with toggle button to avoid gap */
+    }
+    
+    .recorded-segments-panel.collapsed {
+        transform: translate(300px, -50%);
+    }
+    
+    .recorded-segments-panel.collapsed .toggle-btn {
+        transform: translateX(-100%);
+    }
+    
+    .recorded-segments-panel h3 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        padding-bottom: 5px;
+        color: #fff;
+        font-weight: 500;
+    }
+    
+    .recorded-segment {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        padding: 8px;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .recorded-segment .time-range {
+        color: #fff;
+        text-decoration: none;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    
+    .recorded-segment .time-range:hover {
+        text-decoration: underline;
+        color: #1a73e8;
+    }
+    
+    .recorded-segment .actions {
+        margin-top: 5px;
+        display: flex;
         gap: 5px;
     }
-
-    .upvote-btn, .downvote-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 2px 5px;
-        color: #666;
-    }
-
-    .upvote-btn:hover, .downvote-btn:hover {
-        color: #000;
-    }
-
-    .upvote-btn.voted {
-        color: #4CAF50;
-    }
-
-    .downvote-btn.voted {
-        color: #f44336;
-    }
-
-    .vote-score {
-        font-weight: bold;
-        min-width: 20px;
-        text-align: center;
-    }
-
-    .request-controls {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: 10px;
-        gap: 10px;
-    }
-
-    .respond-btn {
-        background-color: #4CAF50;
+    
+    .recorded-segment .actions button {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.3);
         color: white;
-        border: none;
-        padding: 5px 15px;
-        border-radius: 4px;
+        padding: 3px 8px;
+        border-radius: 3px;
         cursor: pointer;
-        font-size: 14px;
-        transition: background-color 0.2s;
+        font-size: 12px;
+        flex: 1;
     }
-
-    .respond-btn:hover {
-        background-color: #45a049;
+    
+    .recorded-segment .actions button:hover {
+        background: rgba(255, 255, 255, 0.1);
     }
 `;
 document.head.appendChild(style);
