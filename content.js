@@ -698,6 +698,33 @@ async function setupFormListeners() {
     }
 }
 
+// Function to validate timestamps
+function validateTimestamps(startTime, endTime, videoDuration) {
+    const timestampRegex = /^([0-5][0-9]):([0-5][0-9]):([0-5][0-9])$/;
+    
+    // Check format
+    if (!timestampRegex.test(startTime) || !timestampRegex.test(endTime)) {
+        throw new Error('Please enter timestamps in the format HH:MM:SS (e.g., 00:15:30)');
+    }
+
+    // Convert timestamps to seconds
+    const startSeconds = startTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+    const endSeconds = endTime.split(':').reduce((acc, time) => (60 * acc) + +time, 0);
+    
+    // Check if start is before end
+    if (startSeconds >= endSeconds) {
+        throw new Error('Start timestamp must be less than end timestamp');
+    }
+
+    // Check if end timestamp exceeds video duration
+    if (endSeconds > videoDuration) {
+        const durationFormatted = formatTime(Math.floor(videoDuration));
+        throw new Error(`End timestamp cannot exceed video duration (${durationFormatted})`);
+    }
+
+    return { startSeconds, endSeconds };
+}
+
 // Handle voting on requests
 async function handleRequestVote(requestId, voteType) {
     const videoId = new URLSearchParams(window.location.search).get('v');
