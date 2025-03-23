@@ -754,6 +754,7 @@ async function setupFormListeners() {
                 if (response.success) {
                     alert('Citation added successfully!');
                     form.reset();
+                    document.getElementById('add-form-container').style.display = 'none';
                     loadCitations();
                 } else {
                     throw new Error(response.error);
@@ -803,6 +804,7 @@ async function setupFormListeners() {
                 if (response.success) {
                     alert('Citation request submitted successfully!');
                     requestForm.reset();
+                    document.getElementById('add-form-container').style.display = 'none';
                     loadCitationRequests();
                 } else {
                     throw new Error(response.error);
@@ -1955,10 +1957,7 @@ function showSimpleTooltip() {
     }, 500);
 
     // Clear interval if elements not found
-    setTimeout(() => {
-        clearInterval(checkForElements);
-        console.log('Tooltip check timed out');
-    }, 10000);
+    setTimeout(() => clearInterval(checkForElements), 10000);
 }
 
 // Update tooltip styles
