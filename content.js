@@ -907,24 +907,83 @@ function updateHighlighting() {
     const citationsContainer = document.getElementById("citations-container");
     const requestsContainer = document.getElementById("citation-requests-container");
 
+    let needsResorting = false;
+
     // Update citations highlighting
     if (citationsContainer && citationsContainer.style.display !== 'none') {
         citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
             const start = parseInt(citation.dataset.start);
             const end = parseInt(citation.dataset.end);
+            const wasHighlighted = citation.classList.contains('active-citation');
             const isHighlighted = currentTime >= start && currentTime <= end;
-            citation.classList.toggle('active-citation', isHighlighted);
+            
+            if (isHighlighted !== wasHighlighted) {
+                citation.classList.toggle('active-citation', isHighlighted);
+                needsResorting = true;
+            }
         });
+
+        // Resort citations if highlighting changed
+        if (needsResorting) {
+            const citations = Array.from(citationsContainer.querySelectorAll('.citation-item'));
+            citations.sort((a, b) => {
+                const aHighlighted = a.classList.contains('active-citation');
+                const bHighlighted = b.classList.contains('active-citation');
+                
+                if (aHighlighted && !bHighlighted) return -1;
+                if (!aHighlighted && bHighlighted) return 1;
+                
+                // If both are highlighted or both are not, maintain original order
+                const aStart = parseInt(a.dataset.start);
+                const bStart = parseInt(b.dataset.start);
+                return aStart - bStart;
+            });
+
+            // Clear and reappend in new order
+            const fragment = document.createDocumentFragment();
+            citations.forEach(citation => fragment.appendChild(citation));
+            citationsContainer.innerHTML = '';
+            citationsContainer.appendChild(fragment);
+        }
     }
 
     // Update requests highlighting
     if (requestsContainer && requestsContainer.style.display !== 'none') {
+        let requestsNeedResorting = false;
         requestsContainer.querySelectorAll('.citation-item').forEach(request => {
             const start = parseInt(request.dataset.start);
             const end = parseInt(request.dataset.end);
+            const wasHighlighted = request.classList.contains('active-citation');
             const isHighlighted = currentTime >= start && currentTime <= end;
-            request.classList.toggle('active-citation', isHighlighted);
+            
+            if (isHighlighted !== wasHighlighted) {
+                request.classList.toggle('active-citation', isHighlighted);
+                requestsNeedResorting = true;
+            }
         });
+
+        // Resort requests if highlighting changed
+        if (requestsNeedResorting) {
+            const requests = Array.from(requestsContainer.querySelectorAll('.citation-item'));
+            requests.sort((a, b) => {
+                const aHighlighted = a.classList.contains('active-citation');
+                const bHighlighted = b.classList.contains('active-citation');
+                
+                if (aHighlighted && !bHighlighted) return -1;
+                if (!aHighlighted && bHighlighted) return 1;
+                
+                // If both are highlighted or both are not, maintain original order
+                const aStart = parseInt(a.dataset.start);
+                const bStart = parseInt(b.dataset.start);
+                return aStart - bStart;
+            });
+
+            // Clear and reappend in new order
+            const fragment = document.createDocumentFragment();
+            requests.forEach(request => fragment.appendChild(request));
+            requestsContainer.innerHTML = '';
+            requestsContainer.appendChild(fragment);
+        }
     }
 }
 
@@ -1400,14 +1459,15 @@ style.textContent = `
         margin: 5px 0;
         border: 1px solid #ddd;
         border-radius: 4px;
-        transition: background-color 0.3s ease;
+        transition: all 0.3s ease;
     }
     .active-citation {
         background-color: #e3f2fd;
         border-color: #2196f3;
+        box-shadow: 0 2px 4px rgba(33, 150, 243, 0.1);
     }
 `;
 document.head.appendChild(style);
 
 // Update highlighting every second
-setInterval(updateHighlighting, 1000);
+setInterval(updateHighlighting, 500);
