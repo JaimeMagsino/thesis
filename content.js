@@ -898,95 +898,6 @@ function updateCitationsList(citations, container) {
     updateHighlighting();
 }
 
-// Update highlighting function to trigger resort when highlighting changes
-function updateHighlighting() {
-    const player = document.querySelector('video');
-    if (!player) return;
-
-    const currentTime = player.currentTime;
-    const citationsContainer = document.getElementById("citations-container");
-    const requestsContainer = document.getElementById("citation-requests-container");
-
-    let needsResorting = false;
-
-    // Update citations highlighting
-    if (citationsContainer && citationsContainer.style.display !== 'none') {
-        citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
-            const start = parseInt(citation.dataset.start);
-            const end = parseInt(citation.dataset.end);
-            const wasHighlighted = citation.classList.contains('active-citation');
-            const isHighlighted = currentTime >= start && currentTime <= end;
-            
-            if (isHighlighted !== wasHighlighted) {
-                citation.classList.toggle('active-citation', isHighlighted);
-                needsResorting = true;
-            }
-        });
-
-        // Resort citations if highlighting changed
-        if (needsResorting) {
-            const citations = Array.from(citationsContainer.querySelectorAll('.citation-item'));
-            citations.sort((a, b) => {
-                const aHighlighted = a.classList.contains('active-citation');
-                const bHighlighted = b.classList.contains('active-citation');
-                
-                if (aHighlighted && !bHighlighted) return -1;
-                if (!aHighlighted && bHighlighted) return 1;
-                
-                // If both are highlighted or both are not, maintain original order
-                const aStart = parseInt(a.dataset.start);
-                const bStart = parseInt(b.dataset.start);
-                return aStart - bStart;
-            });
-
-            // Clear and reappend in new order
-            const fragment = document.createDocumentFragment();
-            citations.forEach(citation => fragment.appendChild(citation));
-            citationsContainer.innerHTML = '';
-            citationsContainer.appendChild(fragment);
-        }
-    }
-
-    // Update requests highlighting
-    if (requestsContainer && requestsContainer.style.display !== 'none') {
-        let requestsNeedResorting = false;
-        requestsContainer.querySelectorAll('.citation-item').forEach(request => {
-            const start = parseInt(request.dataset.start);
-            const end = parseInt(request.dataset.end);
-            const wasHighlighted = request.classList.contains('active-citation');
-            const isHighlighted = currentTime >= start && currentTime <= end;
-            
-            if (isHighlighted !== wasHighlighted) {
-                request.classList.toggle('active-citation', isHighlighted);
-                requestsNeedResorting = true;
-            }
-        });
-
-        // Resort requests if highlighting changed
-        if (requestsNeedResorting) {
-            const requests = Array.from(requestsContainer.querySelectorAll('.citation-item'));
-            requests.sort((a, b) => {
-                const aHighlighted = a.classList.contains('active-citation');
-                const bHighlighted = b.classList.contains('active-citation');
-                
-                if (aHighlighted && !bHighlighted) return -1;
-                if (!aHighlighted && bHighlighted) return 1;
-                
-                // If both are highlighted or both are not, maintain original order
-                const aStart = parseInt(a.dataset.start);
-                const bStart = parseInt(b.dataset.start);
-                return aStart - bStart;
-            });
-
-            // Clear and reappend in new order
-            const fragment = document.createDocumentFragment();
-            requests.forEach(request => fragment.appendChild(request));
-            requestsContainer.innerHTML = '';
-            requestsContainer.appendChild(fragment);
-        }
-    }
-}
-
 // Debounce function to limit the frequency of updates
 function debounce(func, wait) {
     let timeout;
@@ -1471,3 +1382,193 @@ document.head.appendChild(style);
 
 // Update highlighting every second
 setInterval(updateHighlighting, 500);
+
+// Function to update the requests list
+function updateRequestsList(requests, container) {
+    if (!container) return;
+    
+    // Clear existing content
+    container.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    if (!requests || requests.length === 0) {
+        const noRequests = document.createElement('p');
+        noRequests.textContent = 'No citation requests available.';
+        noRequests.className = 'no-items-message';
+        fragment.appendChild(noRequests);
+        container.appendChild(fragment);
+        return;
+    }
+
+    requests.forEach(request => {
+        const requestElement = createRequestElement(request);
+        fragment.appendChild(requestElement);
+    });
+
+    container.appendChild(fragment);
+}
+
+// Function to create a request element
+function createRequestElement(request) {
+    const requestElement = document.createElement("div");
+    requestElement.className = "citation-item";
+    requestElement.dataset.start = parseTimestamp(request.timestampStart);
+    requestElement.dataset.end = parseTimestamp(request.timestampEnd);
+    
+    requestElement.innerHTML = `
+        <p><strong>Title:</strong> ${request.citationTitle}</p>
+        <p><strong>Time Range:</strong> 
+            <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampStart)}">${request.timestampStart}</a> - 
+            <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</a>
+        </p>
+        <p><strong>Requested by:</strong> ${request.username}</p>
+        <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }).format(new Date(request.dateAdded))}</p>
+        <p><strong>Description:</strong> ${request.description}</p>
+        <p><strong>Source:</strong> ${request.source ? 
+            `<a href="${request.source}" target="_blank" rel="noopener noreferrer">${request.source}</a>` : 
+            'N/A'}</p>
+        <div class="request-controls">
+            <button class="accept-request-btn" data-request-id="${request.id}">Accept</button>
+            <button class="reject-request-btn" data-request-id="${request.id}">Reject</button>
+        </div>
+    `;
+
+    // Add click handlers for timestamp links
+    requestElement.querySelectorAll('.timestamp-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const time = parseInt(e.target.dataset.time);
+            if (player && !isNaN(time)) {
+                player.currentTime = time;
+                player.play();
+            }
+        });
+    });
+
+    // Add event listeners for accept/reject buttons
+    const acceptBtn = requestElement.querySelector('.accept-request-btn');
+    const rejectBtn = requestElement.querySelector('.reject-request-btn');
+
+    acceptBtn.addEventListener('click', () => handleRequestAction(request.id, 'accept'));
+    rejectBtn.addEventListener('click', () => handleRequestAction(request.id, 'reject'));
+
+    return requestElement;
+}
+
+// Function to handle request actions (accept/reject)
+async function handleRequestAction(requestId, action) {
+    try {
+        const response = await chrome.runtime.sendMessage({
+            type: action === 'accept' ? 'acceptCitationRequest' : 'rejectCitationRequest',
+            data: { requestId }
+        });
+
+        if (response.success) {
+            // Refresh the requests list
+            loadCitationRequests();
+            // Show success message
+            alert(`Citation request ${action}ed successfully`);
+        } else {
+            alert(`Failed to ${action} citation request. Please try again.`);
+        }
+    } catch (error) {
+        console.error(`Error ${action}ing citation request:`, error);
+        alert(`An error occurred while ${action}ing the citation request. Please try again.`);
+    }
+}
+
+// Update highlighting function to trigger resort when highlighting changes
+function updateHighlighting() {
+    const player = document.querySelector('video');
+    if (!player) return;
+
+    const currentTime = player.currentTime;
+    const citationsContainer = document.getElementById("citations-container");
+    const requestsContainer = document.getElementById("citation-requests-container");
+
+    let needsResorting = false;
+
+    // Update citations highlighting
+    if (citationsContainer && citationsContainer.style.display !== 'none') {
+        citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
+            const start = parseInt(citation.dataset.start);
+            const end = parseInt(citation.dataset.end);
+            const wasHighlighted = citation.classList.contains('active-citation');
+            const isHighlighted = currentTime >= start && currentTime <= end;
+            
+            if (isHighlighted !== wasHighlighted) {
+                citation.classList.toggle('active-citation', isHighlighted);
+                needsResorting = true;
+            }
+        });
+
+        // Resort citations if highlighting changed
+        if (needsResorting) {
+            const citations = Array.from(citationsContainer.querySelectorAll('.citation-item'));
+            citations.sort((a, b) => {
+                const aHighlighted = a.classList.contains('active-citation');
+                const bHighlighted = b.classList.contains('active-citation');
+                
+                if (aHighlighted && !bHighlighted) return -1;
+                if (!aHighlighted && bHighlighted) return 1;
+                
+                // If both are highlighted or both are not, maintain original order
+                const aStart = parseInt(a.dataset.start);
+                const bStart = parseInt(b.dataset.start);
+                return aStart - bStart;
+            });
+
+            // Clear and reappend in new order
+            const fragment = document.createDocumentFragment();
+            citations.forEach(citation => fragment.appendChild(citation));
+            citationsContainer.innerHTML = '';
+            citationsContainer.appendChild(fragment);
+        }
+    }
+
+    // Update requests highlighting
+    if (requestsContainer && requestsContainer.style.display !== 'none') {
+        let requestsNeedResorting = false;
+        requestsContainer.querySelectorAll('.citation-item').forEach(request => {
+            const start = parseInt(request.dataset.start);
+            const end = parseInt(request.dataset.end);
+            const wasHighlighted = request.classList.contains('active-citation');
+            const isHighlighted = currentTime >= start && currentTime <= end;
+            
+            if (isHighlighted !== wasHighlighted) {
+                request.classList.toggle('active-citation', isHighlighted);
+                requestsNeedResorting = true;
+            }
+        });
+
+        // Resort requests if highlighting changed
+        if (requestsNeedResorting) {
+            const requests = Array.from(requestsContainer.querySelectorAll('.citation-item'));
+            requests.sort((a, b) => {
+                const aHighlighted = a.classList.contains('active-citation');
+                const bHighlighted = b.classList.contains('active-citation');
+                
+                if (aHighlighted && !bHighlighted) return -1;
+                if (!aHighlighted && bHighlighted) return 1;
+                
+                // If both are highlighted or both are not, maintain original order
+                const aStart = parseInt(a.dataset.start);
+                const bStart = parseInt(b.dataset.start);
+                return aStart - bStart;
+            });
+
+            // Clear and reappend in new order
+            const fragment = document.createDocumentFragment();
+            requests.forEach(request => fragment.appendChild(request));
+            requestsContainer.innerHTML = '';
+            requestsContainer.appendChild(fragment);
+        }
+    }
+}
