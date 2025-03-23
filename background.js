@@ -37,6 +37,8 @@ async function firestoreRequest(collection, docId = null, method = 'GET', data =
                     fieldValue = { booleanValue: value };
                 } else if (value instanceof Date) {
                     fieldValue = { timestampValue: value.toISOString() };
+                } else if (value === null || value === undefined) {
+                    fieldValue = { nullValue: null };
                 } else {
                     fieldValue = { stringValue: String(value) };
                 }
@@ -44,6 +46,12 @@ async function firestoreRequest(collection, docId = null, method = 'GET', data =
                 return acc;
             }, {})
         };
+
+        // For PATCH requests, add updateMask to specify which fields to update
+        if (method === 'PATCH') {
+            url += '&updateMask.fieldPaths=' + Object.keys(data).join('&updateMask.fieldPaths=');
+        }
+
         options.body = JSON.stringify(firestoreData);
     }
 
@@ -52,7 +60,7 @@ async function firestoreRequest(collection, docId = null, method = 'GET', data =
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Firestore request failed:', errorText);
-        throw new Error(`Firestore request failed: ${response.statusText}`);
+        throw new Error(`Firestore request failed: ${errorText}`);
     }
     return response.json();
 }
@@ -180,6 +188,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
     if (request.type === 'updateVotes') {
+        if (!request.videoId) {
+            sendResponse({ success: false, error: 'Video ID is required' });
+            return true;
+        }
         if (request.itemType === 'citation') {
             handleUpdateCitationVotes(request.videoId, request.itemId, request.voteType).then(sendResponse);
         } else {
@@ -331,6 +343,10 @@ async function handleGetRequests(videoId) {
 
 async function handleUpdateCitationVotes(videoId, citationId, voteType) {
     try {
+        if (!videoId) {
+            throw new Error('Video ID is required');
+        }
+
         // Get current citation data
         const citation = await firestoreRequest(`citations_${videoId}`, citationId);
         if (!citation) {
@@ -346,7 +362,8 @@ async function handleUpdateCitationVotes(videoId, citationId, voteType) {
 
         // Calculate new vote score
         const currentVote = userVotes[citationId];
-        let voteScore = convertFromFirestore(citation).voteScore || 0;
+        const currentCitation = convertFromFirestore(citation);
+        let voteScore = currentCitation.voteScore || 0;
 
         if (voteType === currentVote) {
             // Remove vote
@@ -363,8 +380,11 @@ async function handleUpdateCitationVotes(videoId, citationId, voteType) {
             userVotes[citationId] = voteType;
         }
 
-        // Update citation in Firestore
-        await firestoreRequest(`citations_${videoId}`, citationId, 'PATCH', { voteScore });
+        // Update citation in Firestore - only update the voteScore field
+        await firestoreRequest(`citations_${videoId}`, citationId, 'PATCH', { 
+            ...currentCitation,
+            voteScore 
+        });
 
         // Save updated votes to local storage
         await new Promise(resolve => {

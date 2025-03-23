@@ -1131,11 +1131,17 @@ async function loadCitationRequests() {
 
 async function handleVote(itemId, voteType, itemType = 'citation') {
     try {
+        const videoId = new URLSearchParams(window.location.search).get('v');
+        if (!videoId) {
+            throw new Error('Video ID not found');
+        }
+
         const response = await chrome.runtime.sendMessage({
             type: 'updateVotes',
             itemId,
             voteType,
-            itemType
+            itemType,
+            videoId
         });
 
         if (!response.success) {
