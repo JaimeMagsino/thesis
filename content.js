@@ -601,7 +601,7 @@ async function getYouTubeUsername() {
 
         // Method 2: Try to get from the page without opening menu
         const possibleElements = [
-            document.querySelector("ytd-guide-entry-renderer#line-end-style='handle'] #guide-entry-title"),
+            document.querySelector('ytd-guide-entry-renderer[line-end-style="handle"] #guide-entry-title'),
             document.querySelector('yt-formatted-string#channel-handle'),
             document.querySelector('[id="channel-handle"]')
         ];
@@ -647,14 +647,22 @@ async function getYouTubeUsername() {
                     characterData: false
                 });
 
-                // Set a very short timeout
+                // Set a longer timeout to give more time for the menu to open
                 timeoutId = setTimeout(() => {
                     observer.disconnect();
                     resolve(null);
-                }, 300); // 300ms maximum wait
+                }, 1000); // Increased to 1000ms
 
-                // Click to open
+                // Click to open and ensure the click event is properly triggered
                 avatarButton.click();
+                // Double-check if menu opened
+                setTimeout(() => {
+                    const menu = document.querySelector('ytd-popup-container tp-yt-iron-dropdown[focused]');
+                    if (!menu) {
+                        console.log('Menu did not open, trying click again');
+                        avatarButton.click();
+                    }
+                }, 100);
             });
 
             foundHandle = await handlePromise;
@@ -662,7 +670,10 @@ async function getYouTubeUsername() {
             // Always ensure menu is closed, even if there was an error
             const isMenuOpen = document.querySelector('ytd-popup-container tp-yt-iron-dropdown[focused]');
             if (isMenuOpen) {
-                avatarButton.click();
+                const closeButton = document.querySelector('ytd-masthead button#avatar-btn');
+                if (closeButton) {
+                    closeButton.click();
+                }
             }
         }
 
@@ -788,13 +799,18 @@ async function setupFormListeners() {
                 const endTime = requestForm.timestampEnd.value;
                 const { startSeconds, endSeconds } = validateTimestamps(startTime, endTime, videoDuration);
                 
+                // Get username based on checkbox state
+                const username = await getYouTubeUsername();
+                const anonymousCheckbox = document.getElementById('anonymous');
+                const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
+                
                 const requestData = {
                     videoId,
                     title: requestForm.title.value.trim(),
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     reason: requestForm.reason.value.trim(),
-                    username: 'Anonymous',
+                    username: isAnonymous ? 'Anonymous' : username,
                     dateAdded: new Date().toISOString(),
                     voteScore: 0
                 };
@@ -989,6 +1005,30 @@ async function loadCitations() {
                 updateHighlighting(); // Re-apply highlighting after update
             });
         }
+
+        // Check for username after citations are loaded
+        const username = await getYouTubeUsername();
+        console.log('Username check result:', username);
+        
+        // Update anonymous checkbox visibility if it exists
+        const anonymousGroup = document.getElementById('anonymous-group');
+        if (anonymousGroup) {
+            if (username) {
+                console.log('Showing anonymous checkbox for logged-in user');
+                anonymousGroup.style.display = 'block';
+            } else {
+                console.log('Hiding anonymous checkbox for anonymous user');
+                anonymousGroup.style.display = 'none';
+            }
+        }
+
+        // Store username in chrome storage for later use
+        if (username) {
+            chrome.storage.local.set({ 'youtubeUsername': username }, () => {
+                console.log('Username stored:', username);
+            });
+        }
+
     } catch (error) {
         console.error("Error loading citations:", error);
         if (!container.hasChildNodes()) {
@@ -1448,55 +1488,96 @@ function createCitationElement(citation, userVote) {
     
     console.log('Creating citation element with data:', citation);
     
-    citationElement.innerHTML = `
-        <p><strong>Title:</strong> ${citation.citationTitle}</p>
-        <p><strong>Time Range:</strong> 
-            <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
-            <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
-        </p>
-        <p><strong>Added by:</strong> ${citation.username}</p>
-        <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }).format(new Date(citation.dateAdded))}</p>
-        <p><strong>Description:</strong> ${citation.description}</p>
-        ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
-        <div class="vote-controls" data-citation-id="${citation.id}">
-            <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
-                    title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                <span class="vote-icon">▲</span>
-            </button>
-            <span class="vote-score">${citation.voteScore || 0}</span>
-            <button class="vote-btn downvote-btn ${userVote === 'down' ? 'voted' : ''}" 
-                    title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                <span class="vote-icon">▼</span>
-            </button>
-        </div>
-    `;
+    // Get current username from storage
+    chrome.storage.local.get(['youtubeUsername'], (result) => {
+        const currentUsername = result.youtubeUsername;
+        const showDeleteButton = currentUsername && currentUsername === citation.username;
+        
+        citationElement.innerHTML = `
+            <p><strong>Title:</strong> ${citation.citationTitle}</p>
+            <p><strong>Time Range:</strong> 
+                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
+                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
+            </p>
+            <p><strong>Added by:</strong> ${citation.username}</p>
+            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).format(new Date(citation.dateAdded))}</p>
+            <p><strong>Description:</strong> ${citation.description}</p>
+            ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
+            <div class="citation-controls">
+                <div class="vote-controls" data-citation-id="${citation.id}">
+                    <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
+                            title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                        <span class="vote-icon">▲</span>
+                    </button>
+                    <span class="vote-score">${citation.voteScore || 0}</span>
+                    <button class="vote-btn downvote-btn ${userVote === 'down' ? 'voted' : ''}" 
+                            title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                        <span class="vote-icon">▼</span>
+                    </button>
+                </div>
+                ${showDeleteButton ? `
+                    <button class="delete-citation-btn" title="Delete citation">
+                        <span class="delete-icon">🗑️</span>
+                    </button>
+                ` : ''}
+            </div>
+        `;
 
-    // Add click handlers for timestamp links
-    citationElement.querySelectorAll('.timestamp-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const time = parseInt(e.target.dataset.time);
-            if (player && !isNaN(time)) {
-                player.currentTime = time;
-                player.play();
-            }
+        // Add click handlers for timestamp links
+        citationElement.querySelectorAll('.timestamp-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const time = parseInt(e.target.dataset.time);
+                if (player && !isNaN(time)) {
+                    player.currentTime = time;
+                    player.play();
+                }
+            });
         });
+
+        // Add vote event listeners
+        const voteControls = citationElement.querySelector('.vote-controls');
+        const upvoteBtn = voteControls.querySelector('.upvote-btn');
+        const downvoteBtn = voteControls.querySelector('.downvote-btn');
+
+        upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
+        downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
+
+        // Add delete button event listener if it exists
+        if (showDeleteButton) {
+            const deleteBtn = citationElement.querySelector('.delete-citation-btn');
+            deleteBtn.addEventListener('click', async () => {
+                if (confirm('Are you sure you want to delete this citation? This action cannot be undone.')) {
+                    try {
+                        const response = await chrome.runtime.sendMessage({
+                            type: 'deleteCitation',
+                            citationId: citation.id,
+                            videoId: new URLSearchParams(window.location.search).get('v')
+                        });
+
+                        if (response.success) {
+                            // Remove the citation element from the DOM
+                            citationElement.remove();
+                            // Refresh the citations list
+                            loadCitations();
+                        } else {
+                            throw new Error(response.error);
+                        }
+                    } catch (error) {
+                        console.error('Error deleting citation:', error);
+                        alert('Failed to delete citation. Please try again.');
+                    }
+                }
+            });
+        }
     });
-
-    // Add vote event listeners
-    const voteControls = citationElement.querySelector('.vote-controls');
-    const upvoteBtn = voteControls.querySelector('.upvote-btn');
-    const downvoteBtn = voteControls.querySelector('.downvote-btn');
-
-    upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
-    downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
 
     return citationElement;
 }

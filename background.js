@@ -207,6 +207,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         migrateAllCitations(request.videoId).then(sendResponse);
         return true;
     }
+    if (request.type === 'deleteCitation') {
+        handleDeleteCitation(request.citationId, request.videoId)
+            .then(result => sendResponse(result))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true; // Will respond asynchronously
+    }
 });
 
 async function handleAddCitation(data) {
@@ -468,5 +474,21 @@ async function handleUpdateRequestVotes(videoId, requestId, voteType) {
     } catch (error) {
         console.error('Error updating request vote:', error);
         return { success: false, error: error.message };
+    }
+}
+
+// Function to handle citation deletion
+async function handleDeleteCitation(citationId, videoId) {
+    try {
+        console.log('Deleting citation:', citationId, 'from video:', videoId);
+        
+        // Delete the citation document directly
+        await firestoreRequest(`citations_${videoId}`, citationId, 'DELETE');
+        
+        console.log('Citation deleted successfully');
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting citation:', error);
+        throw error;
     }
 }
