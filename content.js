@@ -1472,7 +1472,7 @@ function showAddForm(isRequestsTab) {
             </div>
         </form>
     `;
-
+    
     formContainer.style.display = 'block';
     
     // Add event listeners
@@ -1615,10 +1615,10 @@ function createCitationElement(citation, userVote) {
 
 function updateCitationsList(citations, container) {
     if (!container) return;
-
+    
     container.innerHTML = '';
     const fragment = document.createDocumentFragment();
-
+    
     if (citations.length === 0) {
         const noCitations = document.createElement('p');
         noCitations.textContent = 'No citations found for this video.';
@@ -1637,30 +1637,16 @@ function updateCitationsList(citations, container) {
 const style = document.createElement('style');
 style.textContent = `
     #citation-controls {
-        max-height: 80vh;
+        max-height: 60vh;
         display: flex;
         flex-direction: column;
-    }
-    
-    .citations-scroll-container {
-        flex: 1;
         overflow-y: auto;
-        max-height: calc(80vh - 120px);
-        padding-right: 8px;
-    }
-
-    .citations-scroll-container::-webkit-scrollbar {
-        width: 8px;
     }
     
-    .citations-scroll-container::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.1);
-        border-radius: 4px;
-    }
-    
-    .citations-scroll-container::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
+    .citations-scroll-container,
+    #citations-container,
+    #citation-requests-container {
+        overflow: visible;
     }
 
     .section-header {
@@ -2163,13 +2149,13 @@ function showSimpleTooltip() {
 // Update tooltip styles
 const tooltipStyles = `
     .simple-tooltip {
-        position: fixed;
+        position: absolute;
         background: rgba(0, 0, 0, 0.9);
         color: white;
         padding: 8px 12px;
         border-radius: 4px;
         font-size: 13px;
-        z-index: 9999999;
+        z-index: 10000;
         max-width: 220px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         pointer-events: none;
@@ -2196,6 +2182,11 @@ const tooltipStyles = `
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     }
 `;
+
+// Add the styles to the page
+const styleEl = document.createElement('style');
+styleEl.textContent = tooltipStyles;
+document.head.appendChild(styleEl);
 
 // Add CSS for the new buttons
 const buttonStyles = `
@@ -2301,6 +2292,6 @@ if (location.href.includes('youtube.com/watch')) {
 }
 
 // Add the styles to the page
-const styleEl = document.createElement('style');
-styleEl.textContent = buttonStyles + tooltipStyles;
-document.head.appendChild(styleEl);
+const styleEl2 = document.createElement('style');
+styleEl2.textContent = buttonStyles;
+document.head.appendChild(styleEl2);
