@@ -200,14 +200,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleAddCitation(data) {
     try {
         console.log('Adding citation:', data);
-        // Ensure we're using citationTitle instead of source
-        const { source, ...restData } = data;
+        // Ensure source is properly handled
         const citation = {
-            ...restData,
-            citationTitle: data.citationTitle || data.source, // Handle both old and new format
+            ...data,
+            source: data.source || null, // Ensure source is explicitly set
             timestamp: new Date().toISOString(),
             voteScore: 0
         };
+        
+        console.log('Processed citation data:', citation); // Debug log
         
         const result = await firestoreRequest(`citations_${data.videoId}`, null, 'POST', citation);
         const docId = result.name.split('/').pop();

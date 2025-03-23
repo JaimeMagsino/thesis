@@ -587,16 +587,33 @@ async function setupFormListeners() {
                 const anonymousCheckbox = document.getElementById('anonymous');
                 const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
                 
+                const sourceUrl = form.source.value.trim();
+                let validatedSource = null;
+                if (sourceUrl !== '') {
+                    try {
+                        const url = new URL(sourceUrl);
+                        validatedSource = url.toString(); // Use full URL string
+                    } catch (e) {
+                        alert('Please enter a valid URL for the source');
+                        return;
+                    }
+                }
+
+                console.log('Source URL:', validatedSource); // Debug log
+
                 const citationData = {
                     videoId,
                     citationTitle: form.citationTitle.value,
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     description: form.description.value,
+                    source: validatedSource,
                     username: isAnonymous ? 'Anonymous' : username,
                     dateAdded: new Date().toISOString()
                 };
                 
+                console.log('Submitting citation:', citationData); // Debug log
+
                 const response = await chrome.runtime.sendMessage({
                     type: 'addCitation',
                     data: citationData
@@ -814,62 +831,7 @@ async function loadCitations() {
                     fragment.appendChild(noCitations);
                 } else {
                     sortedCitations.forEach(citation => {
-                        const citationElement = document.createElement("div");
-                        citationElement.className = "citation-item";
-                        citationElement.dataset.start = parseTimestamp(citation.timestampStart);
-                        citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
-                        
-                        const userVote = userVotes[citation.id] || null;
-                        
-                        citationElement.innerHTML = `
-                            <p><strong>Title:</strong> ${citation.citationTitle}</p>
-                            <p><strong>Time Range:</strong> 
-                                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
-                                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
-                            </p>
-                            <p><strong>Added by:</strong> ${citation.username}</p>
-                            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                            }).format(new Date(citation.dateAdded))}</p>
-                            <p>${citation.description}</p>
-                            <div class="vote-controls" data-citation-id="${citation.id}">
-                                <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
-                                        title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                                    <span class="vote-icon">▲</span>
-                                </button>
-                                <span class="vote-score">${citation.voteScore || 0}</span>
-                                <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
-                                        title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                                    <span class="vote-icon">▼</span>
-                                </button>
-                            </div>
-                        `;
-
-                        // Add vote event listeners
-                        const voteControls = citationElement.querySelector('.vote-controls');
-                        const upvoteBtn = voteControls.querySelector('.upvote-btn');
-                        const downvoteBtn = voteControls.querySelector('.downvote-btn');
-
-                        upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
-                        downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
-                        
-                        // Add click handlers for timestamp links
-                        citationElement.querySelectorAll('.timestamp-link').forEach(link => {
-                            link.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                const time = parseInt(e.target.dataset.time);
-                                if (player && !isNaN(time)) {
-                                    player.currentTime = time;
-                                    player.play();
-                                }
-                            });
-                        });
-
+                        const citationElement = createCitationElement(citation, userVotes[citation.id] || null);
                         fragment.appendChild(citationElement);
                     });
                 }
@@ -920,56 +882,8 @@ function updateCitationsList(citations, container) {
                 citationElement = existingElements.get(citation.id);
                 existingElements.delete(citation.id);
             } else {
-                citationElement = document.createElement("div");
-                citationElement.className = "citation-item";
+                citationElement = createCitationElement(citation, userVotes[citation.id] || null);
             }
-
-            citationElement.dataset.start = parseTimestamp(citation.timestampStart);
-            citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
-            
-            const userVote = userVotes[citation.id] || null;
-            
-            citationElement.innerHTML = `
-                <p><strong>Title:</strong> ${citation.citationTitle}</p>
-                <p><strong>Time Range:</strong> ${citation.timestampStart} - ${citation.timestampEnd}</p>
-                <p><strong>Added by:</strong> ${citation.username}</p>
-                <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                }).format(new Date(citation.dateAdded))}</p>
-                <p>${citation.description}</p>
-                <div class="vote-controls" data-citation-id="${citation.id}">
-                    <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
-                            title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                        <span class="vote-icon">▲</span>
-                    </button>
-                    <span class="vote-score">${citation.voteScore || 0}</span>
-                    <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
-                            title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                        <span class="vote-icon">▼</span>
-                    </button>
-                </div>
-            `;
-
-            // Re-add event listeners
-            const voteControls = citationElement.querySelector('.vote-controls');
-            const upvoteBtn = voteControls.querySelector('.upvote-btn');
-            const downvoteBtn = voteControls.querySelector('.downvote-btn');
-
-            upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
-            downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
-            
-            // Add click handlers for timestamp links
-            citationElement.querySelectorAll('.timestamp-link').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    seekToTime(Number(link.dataset.time));
-                });
-            });
 
             fragment.appendChild(citationElement);
         });
@@ -984,144 +898,33 @@ function updateCitationsList(citations, container) {
     updateHighlighting();
 }
 
-// Helper function to update requests list
-function updateRequestsList(requests, container) {
-    if (!container) return;
-    
-    const fragment = document.createDocumentFragment();
-    
-    if (requests.length === 0) {
-        const noRequests = document.createElement('p');
-        noRequests.textContent = 'No citation requests yet.';
-        fragment.appendChild(noRequests);
-    } else {
-        requests.forEach(request => {
-            const requestElement = document.createElement("div");
-            requestElement.className = "citation-item";
-            requestElement.dataset.start = parseTimestamp(request.timestampStart);
-            requestElement.dataset.end = parseTimestamp(request.timestampEnd);
-            
-            // Check if request should be highlighted
-            const start = Number(requestElement.dataset.start);
-            const end = Number(requestElement.dataset.end);
-            const isHighlighted = currentTime >= start && currentTime <= end;
-            if (isHighlighted) {
-                requestElement.classList.add('active-citation');
-            }
-
-            requestElement.innerHTML = `
-                <div class="citation-content">
-                    <p class="citation-title">${request.title || 'Untitled Request'}</p>
-                    <p><strong>Time Range:</strong> ${request.timestampStart} - ${request.timestampEnd}</p>
-                    <p><strong>Added by:</strong> ${request.username}</p>
-                    <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    }).format(new Date(request.dateAdded))}</p>
-                    ${request.reason ? `<p class="description-area">${request.reason}</p>` : ''}
-                </div>
-                <div class="vote-controls" data-request-id="${request.id}">
-                    <button class="vote-btn upvote-btn ${request.userVote === 'up' ? 'active' : ''}" 
-                            title="${request.userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                        <span class="vote-icon">▲</span>
-                    </button>
-                    <span class="vote-score">${request.voteScore || 0}</span>
-                    <button class="vote-btn downvote-btn ${request.userVote === 'down' ? 'active' : ''}" 
-                            title="${request.userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                        <span class="vote-icon">▼</span>
-                    </button>
-                </div>
-                <button class="respond-btn" 
-                        data-start="${request.timestampStart}" 
-                        data-end="${request.timestampEnd}" 
-                        data-reason="${request.reason.replace(/"/g, '&quot;')}">
-                    Respond with Citation
-                </button>
-            `;
-
-            // Add timestamp click handlers
-            requestElement.querySelectorAll('.timestamp-link').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    seekToTime(Number(link.dataset.time));
-                });
-            });
-
-            // Add vote event listeners
-            const voteControls = requestElement.querySelector('.vote-controls');
-            const upvoteBtn = voteControls.querySelector('.upvote-btn');
-            const downvoteBtn = voteControls.querySelector('.downvote-btn');
-
-            upvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'up'));
-            downvoteBtn.addEventListener('click', () => handleRequestVote(request.id, 'down'));
-
-            fragment.appendChild(requestElement);
-        });
-    }
-
-    // Only update if container is visible and content has changed
-    if (container.style.display === 'block') {
-        const currentContent = container.innerHTML;
-        const newContent = document.createElement('div');
-        newContent.appendChild(fragment.cloneNode(true));
-        
-        if (currentContent !== newContent.innerHTML) {
-            container.innerHTML = '';
-            container.appendChild(fragment);
-        }
-    }
-}
-
 // Update highlighting function to trigger resort when highlighting changes
 function updateHighlighting() {
+    const player = document.querySelector('video');
+    if (!player) return;
+
+    const currentTime = player.currentTime;
     const citationsContainer = document.getElementById("citations-container");
     const requestsContainer = document.getElementById("citation-requests-container");
-    
-    let needsResorting = false;
 
     // Update citations highlighting
-    if (citationsContainer && citationsContainer.style.display === 'block') {
+    if (citationsContainer && citationsContainer.style.display !== 'none') {
         citationsContainer.querySelectorAll('.citation-item').forEach(citation => {
-            const start = Number(citation.dataset.start);
-            const end = Number(citation.dataset.end);
-            const wasHighlighted = citation.classList.contains('active-citation');
+            const start = parseInt(citation.dataset.start);
+            const end = parseInt(citation.dataset.end);
             const isHighlighted = currentTime >= start && currentTime <= end;
-            
-            if (isHighlighted !== wasHighlighted) {
-                citation.classList.toggle('active-citation', isHighlighted);
-                needsResorting = true;
-            }
+            citation.classList.toggle('active-citation', isHighlighted);
         });
-
-        if (needsResorting) {
-            const sortedCitations = sortItems(currentCitations, currentSortOption, 'citation');
-            updateCitationsList(sortedCitations, citationsContainer);
-        }
     }
-    
-    // Update citation requests highlighting
-    needsResorting = false;
-    if (requestsContainer && requestsContainer.style.display === 'block') {
-        requestsContainer.querySelectorAll('.citation-item').forEach(request => {
-            const start = Number(request.dataset.start);
-            const end = Number(request.dataset.end);
-            const wasHighlighted = request.classList.contains('active-citation');
-            const isHighlighted = currentTime >= start && currentTime <= end;
-            
-            if (isHighlighted !== wasHighlighted) {
-                request.classList.toggle('active-citation', isHighlighted);
-                needsResorting = true;
-            }
-        });
 
-        if (needsResorting) {
-            const sortedRequests = sortItems(currentRequests, currentSortOption, 'request');
-            updateRequestsList(sortedRequests, requestsContainer);
-        }
+    // Update requests highlighting
+    if (requestsContainer && requestsContainer.style.display !== 'none') {
+        requestsContainer.querySelectorAll('.citation-item').forEach(request => {
+            const start = parseInt(request.dataset.start);
+            const end = parseInt(request.dataset.end);
+            const isHighlighted = currentTime >= start && currentTime <= end;
+            request.classList.toggle('active-citation', isHighlighted);
+        });
     }
 }
 
@@ -1505,3 +1308,106 @@ async function initializeExtension() {
 
 // Call initialize only on YouTube navigation
 document.addEventListener('yt-navigate-finish', initializeExtension);
+
+function createCitationElement(citation, userVote) {
+    const citationElement = document.createElement("div");
+    citationElement.className = "citation-item";
+    citationElement.dataset.start = parseTimestamp(citation.timestampStart);
+    citationElement.dataset.end = parseTimestamp(citation.timestampEnd);
+    
+    console.log('Creating citation element with data:', citation);
+    
+    citationElement.innerHTML = `
+        <p><strong>Title:</strong> ${citation.citationTitle}</p>
+        <p><strong>Time Range:</strong> 
+            <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
+            <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
+        </p>
+        <p><strong>Added by:</strong> ${citation.username}</p>
+        <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }).format(new Date(citation.dateAdded))}</p>
+        <p><strong>Description:</strong> ${citation.description}</p>
+        <p><strong>Source:</strong> ${citation.source ? 
+            `<a href="${citation.source}" target="_blank" rel="noopener noreferrer">${citation.source}</a>` : 
+            'N/A'}</p>
+        <div class="vote-controls" data-citation-id="${citation.id}">
+            <button class="vote-btn upvote-btn ${userVote === 'up' ? 'active' : ''}" 
+                    title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                <span class="vote-icon">▲</span>
+            </button>
+            <span class="vote-score">${citation.voteScore || 0}</span>
+            <button class="vote-btn downvote-btn ${userVote === 'down' ? 'active' : ''}" 
+                    title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                <span class="vote-icon">▼</span>
+            </button>
+        </div>
+    `;
+
+    // Add click handlers for timestamp links
+    citationElement.querySelectorAll('.timestamp-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const time = parseInt(e.target.dataset.time);
+            if (player && !isNaN(time)) {
+                player.currentTime = time;
+                player.play();
+            }
+        });
+    });
+
+    // Add vote event listeners
+    const voteControls = citationElement.querySelector('.vote-controls');
+    const upvoteBtn = voteControls.querySelector('.upvote-btn');
+    const downvoteBtn = voteControls.querySelector('.downvote-btn');
+
+    upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
+    downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
+
+    return citationElement;
+}
+
+function updateCitationsList(citations, container) {
+    if (!container) return;
+
+    container.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    if (citations.length === 0) {
+        const noCitations = document.createElement('p');
+        noCitations.textContent = 'No citations found for this video.';
+        fragment.appendChild(noCitations);
+    } else {
+        citations.forEach(citation => {
+            const citationElement = createCitationElement(citation, userVotes[citation.id] || null);
+            fragment.appendChild(citationElement);
+        });
+    }
+
+    container.appendChild(fragment);
+}
+
+// Add CSS for highlighting
+const style = document.createElement('style');
+style.textContent = `
+    .citation-item {
+        padding: 10px;
+        margin: 5px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    .active-citation {
+        background-color: #e3f2fd;
+        border-color: #2196f3;
+    }
+`;
+document.head.appendChild(style);
+
+// Update highlighting every second
+setInterval(updateHighlighting, 1000);
