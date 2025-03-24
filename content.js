@@ -1368,9 +1368,6 @@ async function loadCitations() {
 
     } catch (error) {
         console.error("Error loading citations:", error);
-        if (!container.hasChildNodes()) {
-            container.innerHTML = '<p>Error loading citations. Please try again later.</p>';
-        }
     }
 }
 
