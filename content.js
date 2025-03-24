@@ -2824,16 +2824,16 @@ recordedSegmentsStyle.textContent = `
         width: 460px;
         max-width: 95%;
         display: flex;
-        overflow: hidden; /* Added to prevent button overflow */
+        overflow: visible; /* Changed from hidden to allow button to maintain size */
     }
     
     .recorded-segments-panel.collapsed {
-        transform: translateX(calc(100% - 20px)); /* Reduced from 30px to 20px to match button width */
+        transform: translateX(calc(100% - 20px));
     }
     
     .recorded-segments-panel .toggle-btn {
         position: absolute;
-        left: 0;
+        left: -20px; /* Position button outside the panel */
         top: 0;
         transform: none;
         background: #1a73e8;
@@ -2843,22 +2843,24 @@ recordedSegmentsStyle.textContent = `
         padding: 0;
         cursor: pointer;
         width: 20px;
-        height: 100%; /* Make button fill the entire height */
+        height: 100%;
+        min-height: 40px; /* Added minimum height */
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 12px;
         margin: 0;
+        z-index: 1; /* Ensure button stays above other elements */
     }
     
     .recorded-segments-panel .panel-content {
         padding: 16px;
         width: 100%;
-        margin-left: 20px;
+        margin-left: 0; /* Removed margin since button is now outside */
         max-height: 80vh;
         overflow-y: auto;
         min-width: 430px;
-        border-left: 1px solid rgba(0, 0, 0, 0.1); /* Added to separate content from button */
+        border-left: none; /* Removed since button is outside */
     }
     
     .recorded-segment {
