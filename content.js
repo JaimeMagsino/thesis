@@ -40,18 +40,31 @@ window.respondWithCitation = function(start, end, reason, title = '') {
 };
 
 function waitForDependencies() {
+    console.log('Waiting for YouTube page dependencies...');
     const checkPage = setInterval(() => {
         const titleContainer = document.querySelector("ytd-watch-metadata");
         const videoElement = document.querySelector("video");
         if (titleContainer && videoElement) {
             clearInterval(checkPage);
             player = videoElement;
+            console.log('Dependencies found, initializing extension features...');
             setupTimeTracking();
             setupVideoChangeTracking();
             init();
-            console.log("YouTube page ready, initializing extension");
+            
+            // Add a slight delay before setting up record buttons to ensure player controls are ready
+            setTimeout(() => {
+                console.log('Setting up record functionality...');
+                setupRecordButtons();
+                console.log('YouTube page ready, extension fully initialized');
+            }, 1000);
         }
     }, 100);
+    
+    // Clear interval after 30 seconds to prevent infinite checking
+    setTimeout(() => {
+        clearInterval(checkPage);
+    }, 30000);
 }
 
 // Function to check if theater mode is active
@@ -69,18 +82,30 @@ function mutationCallback(mutationsList) {
 
                 const playerContainer = document.querySelector('#ytd-player');
                 const ccDiv = document.querySelector("#citation-controls");
-                playerContainer.appendChild(ccDiv); // appendChild moves the existing element
-                ccDiv.style.position = 'absolute';
-                ccDiv.style.top = '10%'; // Position % relative to the top of the container; adjust as needed
-                ccDiv.style.right = '0';
-                ccDiv.style.zIndex = '999'; // High z-index so it floats above everything else
+                
+                if (ccDiv) {
+                    playerContainer.appendChild(ccDiv);
+                    ccDiv.style.position = 'absolute';
+                    ccDiv.style.top = '0';
+                    ccDiv.style.right = '0';
+                    ccDiv.style.zIndex = '999';
+                    // Use the stored width
+                    ccDiv.style.width = storedSecondaryWidth + 'px';
+                    ccDiv.style.backgroundColor = 'white';
+                    ccDiv.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+                }
             } else {
                 console.log('Theater mode deactivated');
                 
                 const ccDiv = document.querySelector("#citation-controls");
-                ccDiv.removeAttribute('style');
                 const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
-                secondaryElement.insertBefore(ccDiv, secondaryElement.firstChild); // insertBefore moves the existing element
+                
+                if (ccDiv && secondaryElement) {
+                    ccDiv.removeAttribute('style');
+                    // Use the stored width
+                    ccDiv.style.width = storedSecondaryWidth + 'px';
+                    secondaryElement.insertBefore(ccDiv, secondaryElement.firstChild);
+                }
             }
         }
     }
@@ -101,6 +126,9 @@ function insertBelowTitle() {
     return;
 }
 
+// Add a variable to store the width of the secondary element
+let storedSecondaryWidth = 0;
+
 function insertCitationButtons() {
     const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
     if (!secondaryElement) {
@@ -108,9 +136,15 @@ function insertCitationButtons() {
         return;
     }
     
+    // Store the initial width
+    storedSecondaryWidth = secondaryElement.offsetWidth;
+    
     const citationControls = document.createElement("div");
     citationControls.id = "citation-controls";
     citationControls.className = "citation-controls";
+    
+    // Set initial width to match secondary element
+    citationControls.style.width = storedSecondaryWidth + 'px';
     
     citationControls.innerHTML = `
         <div class="extension-header">
@@ -162,6 +196,24 @@ function insertCitationButtons() {
     `;
     
     secondaryElement.prepend(citationControls);
+    
+    // Create a ResizeObserver to update width when secondary element changes
+    const resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+            if (entry.target === secondaryElement) {
+                // Update the stored width
+                storedSecondaryWidth = entry.target.offsetWidth;
+                
+                const ccDiv = document.querySelector("#citation-controls");
+                if (ccDiv) {
+                    ccDiv.style.width = storedSecondaryWidth + 'px';
+                }
+            }
+        }
+    });
+    
+    // Start observing the secondary element
+    resizeObserver.observe(secondaryElement);
 
     // Add toggle functionality
     const toggleBtn = document.getElementById('toggle-extension');
@@ -277,12 +329,76 @@ function insertCitationButtons() {
 
 // Setup Record Buttons to toggle recording and capture timestamps
 function setupRecordButtons() {
-    const playerControls = document.querySelector('.ytp-left-controls');
-    if (!playerControls || document.querySelector('.record-start-btn')) return;
+    console.log('Setting up record buttons...');
+    
+    // Check if buttons already exist
+    if (document.querySelector('.record-start-btn')) {
+        console.log('Record buttons already exist, skipping setup');
+        return;
+    }
+    
+    // Look for player controls - try multiple selectors for better reliability
+    const playerControlsSelectors = [
+        '.ytp-left-controls',
+        '.ytp-chrome-bottom .ytp-left-controls',
+        '#movie_player .ytp-chrome-bottom .ytp-left-controls',
+        '#movie_player .ytp-left-controls'
+    ];
+    
+    let playerControls = null;
+    
+    // Try each selector
+    for (const selector of playerControlsSelectors) {
+        playerControls = document.querySelector(selector);
+        if (playerControls) {
+            console.log('Found player controls with selector:', selector);
+            break;
+        }
+    }
+    
+    // If we still couldn't find controls, return early but log it
+    if (!playerControls) {
+        console.error('Could not find YouTube player controls. Record buttons not added.');
+        return;
+    }
 
-    // Find the timestamp element
-    const timestamp = playerControls.querySelector('.ytp-time-display');
-    if (!timestamp) return;
+    // Find the timestamp element - again with fallback selectors
+    const timestampSelectors = [
+        '.ytp-time-display',
+        '.ytp-time-current',
+        '.ytp-time-display > span'
+    ];
+    
+    let timestamp = null;
+    
+    // Try each timestamp selector
+    for (const selector of timestampSelectors) {
+        timestamp = playerControls.querySelector(selector);
+        if (timestamp) {
+            console.log('Found timestamp element with selector:', selector);
+            break;
+        }
+    }
+
+    // If we couldn't find the timestamp element, try to find another anchor point
+    if (!timestamp) {
+        timestamp = playerControls.querySelector('.ytp-volume-panel') || 
+                   playerControls.querySelector('button') ||
+                   playerControls.firstChild;
+                   
+        if (!timestamp) {
+            console.error('Could not find suitable anchor for record buttons in player controls');
+            return;
+        }
+        console.log('Using fallback anchor for record buttons');
+    }
+
+    // Make sure we have access to the video element
+    const player = document.querySelector('video');
+    if (!player) {
+        console.error('Could not find video element. Record buttons not added.');
+        return;
+    }
 
     // Create start record button
     const startRecordBtn = document.createElement('button');
@@ -316,10 +432,13 @@ function setupRecordButtons() {
     // Insert buttons right after the timestamp
     timestamp.insertAdjacentElement('afterend', startRecordBtn);
     timestamp.insertAdjacentElement('afterend', endRecordBtn);
+    
+    console.log('Record buttons added to player controls');
 
     let recordStartTime = null;
 
     startRecordBtn.addEventListener('click', () => {
+        console.log('Start record button clicked');
         recordStartTime = player.currentTime;
         startRecordBtn.style.display = 'none';
         endRecordBtn.style.display = '';
@@ -327,13 +446,17 @@ function setupRecordButtons() {
     });
 
     endRecordBtn.addEventListener('click', () => {
+        console.log('End record button clicked');
         const recordEndTime = player.currentTime;
         startRecordBtn.style.display = '';
         endRecordBtn.style.display = 'none';
         startRecordBtn.classList.remove('recording-active');
         
         if (recordStartTime !== null && recordEndTime > recordStartTime) {
+            console.log('Recording completed: start=', recordStartTime, 'end=', recordEndTime);
             addRecordedSegment(recordStartTime, recordEndTime);
+        } else {
+            console.warn('Invalid recording: start time must be before end time');
         }
         recordStartTime = null;
     });
@@ -377,15 +500,39 @@ function checkAndHidePanel() {
 
 // Function to add a new recorded segment
 function addRecordedSegment(startTime, endTime) {
+    console.log('Adding recorded segment:', startTime, endTime);
+    
+    // Create or get the panel
     const panel = setupRecordedSegmentsPanel();
-    panel.style.display = ''; // Show panel when adding new segment
-    const container = panel.querySelector('.segments-container');
+    
+    // Make sure the panel is properly styled
+    if (!panel.style.position) {
+        panel.style.position = 'fixed';
+        panel.style.top = '20%';
+        panel.style.right = '0';
+        panel.style.zIndex = '2000';
+    }
+    
+    // Make panel visible
+    panel.style.display = '';
+    
+    // Get or create the container
+    let container = panel.querySelector('.segments-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'segments-container';
+        panel.querySelector('.panel-content').appendChild(container);
+    }
+    
+    // Create segment element
     const segment = document.createElement('div');
     segment.className = 'recorded-segment';
     
+    // Format the times
     const formattedStart = formatTime(Math.floor(startTime));
     const formattedEnd = formatTime(Math.floor(endTime));
     
+    // Create segment HTML
     segment.innerHTML = `
         <div class="time-range">${formattedStart} - ${formattedEnd}</div>
         <div class="actions">
@@ -395,63 +542,125 @@ function addRecordedSegment(startTime, endTime) {
         </div>
     `;
 
-    // Add event listeners
+    // Add event listeners for the time range (to seek)
     segment.querySelector('.time-range').addEventListener('click', () => {
-        player.currentTime = startTime;
+        const video = document.querySelector('video');
+        if (video) {
+            video.currentTime = startTime;
+            video.play();
+        }
     });
 
+    // Add Citation button
     segment.querySelector('.cite-btn').addEventListener('click', () => {
-        document.getElementById('citations-btn').click();
-        document.getElementById('add-item-btn').click();
+        // First, make sure the citation tab is selected
+        const citationsBtn = document.getElementById('citations-btn');
+        if (citationsBtn) {
+            citationsBtn.click();
+        }
+        
+        // Then click the add button
+        const addItemBtn = document.getElementById('add-item-btn');
+        if (addItemBtn) {
+            addItemBtn.click();
+        }
+        
         // Wait for form to load
         setTimeout(() => {
             const form = document.getElementById('citation-form');
             if (form) {
-                form.timestampStart.value = formattedStart;
-                form.timestampEnd.value = formattedEnd;
-                form.citationTitle.focus();
+                // Find and populate timestamp fields
+                const startField = form.querySelector('#timestampStart');
+                const endField = form.querySelector('#timestampEnd');
+                
+                if (startField) startField.value = formattedStart;
+                if (endField) endField.value = formattedEnd;
+                
+                // Focus on title field
+                const titleField = form.querySelector('#citationTitle');
+                if (titleField) titleField.focus();
+                
                 console.log('Citation form loaded with start:', formattedStart, 'and end:', formattedEnd);
-                initializeCitationForm();
+                
+                // Initialize the form if needed
+                if (typeof initializeCitationForm === 'function') {
+                    initializeCitationForm();
+                }
             } else {
                 console.error("Citation form not found!");
             }
-        }, 100);
+        }, 300);
+        
         // Collapse panel to show form
         panel.classList.add('collapsed');
-        const toggleBtn = document.querySelector('.toggle-btn');
+        const toggleBtn = panel.querySelector('.toggle-btn');
         if (toggleBtn) toggleBtn.textContent = '▶';
     });
 
+    // Add Request button
     segment.querySelector('.request-btn').addEventListener('click', () => {
-        document.getElementById('citation-requests-btn').click();
-        document.getElementById('add-item-btn').click();
+        // First, make sure the requests tab is selected
+        const requestsBtn = document.getElementById('citation-requests-btn');
+        if (requestsBtn) {
+            requestsBtn.click();
+        }
+        
+        // Then click the add button
+        const addItemBtn = document.getElementById('add-item-btn');
+        if (addItemBtn) {
+            addItemBtn.click();
+        }
+        
         // Wait for form to load
         setTimeout(() => {
             const form = document.getElementById('request-form');
             if (form) {
-                form.timestampStart.value = formattedStart;
-                form.timestampEnd.value = formattedEnd;
-                form.reason.focus();
+                // Find and populate timestamp fields
+                const startField = form.querySelector('#timestampStart');
+                const endField = form.querySelector('#timestampEnd');
+                
+                if (startField) startField.value = formattedStart;
+                if (endField) endField.value = formattedEnd;
+                
+                // Focus on reason field
+                const reasonField = form.querySelector('#reason');
+                if (reasonField) reasonField.focus();
+                
                 console.log('Request form loaded with start:', formattedStart, 'and end:', formattedEnd);
+                
+                // Initialize the form if needed
+                if (typeof initializeRequestForm === 'function') {
+                    initializeRequestForm();
+                }
             } else {
                 console.error("Request form not found!");
             }
-        }, 100);
+        }, 300);
+        
         // Collapse panel to show form
         panel.classList.add('collapsed');
-        const toggleBtn = document.querySelector('.toggle-btn');
+        const toggleBtn = panel.querySelector('.toggle-btn');
         if (toggleBtn) toggleBtn.textContent = '▶';
     });
 
+    // Delete button
     segment.querySelector('.delete-btn').addEventListener('click', () => {
         segment.remove();
-        checkAndHidePanel();
+        // Check if container is empty and hide panel if needed
+        if (container.children.length === 0) {
+            panel.style.display = 'none';
+        }
     });
 
+    // Add segment to container
     container.appendChild(segment);
+    
+    // Make sure panel is expanded
     panel.classList.remove('collapsed');
-    const toggleBtn = document.querySelector('.toggle-btn');
+    const toggleBtn = panel.querySelector('.toggle-btn');
     if (toggleBtn) toggleBtn.textContent = '◀';
+    
+    console.log('Recorded segment added successfully');
 }
 
 // Utility function to format seconds into HH:MM:SS
@@ -564,6 +773,14 @@ function showQuickTaskButtons(startTime, endTime) {
 
 function init() {
     console.log('Initializing extension...');
+    
+    // Clear any existing controls first to prevent duplicates
+    const existingControls = document.getElementById('citation-controls');
+    if (existingControls) {
+        console.log('Removing existing citation controls');
+        existingControls.remove();
+    }
+    
     insertCitationButtons();
     observeTheaterMode();
     
@@ -576,6 +793,9 @@ function init() {
     if (requestForm) {
         initializeRequestForm();
     }
+    
+    // Ensure recorded segments panel exists
+    setupRecordedSegmentsPanel();
 }
 
 // Function to initialize citation form
@@ -603,6 +823,13 @@ async function initializeRequestForm() {
     const form = document.getElementById('request-form');
     if (form) {
         console.log('Setting up request form listeners');
+        
+        // Remove the anonymous checkbox if it exists
+        const anonymousGroup = form.querySelector('#anonymous-group');
+        if (anonymousGroup) {
+            anonymousGroup.style.display = 'none';
+        }
+        
         setupFormListeners();
     } else {
         console.log('Request form not found after initialization');
@@ -748,7 +975,39 @@ function loadPage(url, containerId, callback = null) {
     fetch(chrome.runtime.getURL(url))
         .then(response => response.text())
         .then(html => {
-            document.getElementById(containerId).innerHTML = html;
+            const container = document.getElementById(containerId);
+            container.innerHTML = html;
+            
+            // Apply additional styling to form elements
+            const forms = container.querySelectorAll('form');
+            forms.forEach(form => {
+                form.style.maxWidth = '100%';
+                
+                // Style input and textarea elements
+                const inputs = form.querySelectorAll('input, textarea');
+                inputs.forEach(input => {
+                    if (input.type !== 'checkbox') {
+                        input.classList.add('form-input');
+                    }
+                });
+                
+                const textareas = form.querySelectorAll('textarea');
+                textareas.forEach(textarea => {
+                    textarea.classList.add('form-textarea');
+                });
+                
+                // Style form buttons
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.classList.add('submit-btn');
+                }
+                
+                const cancelBtn = form.querySelector('button.cancel-btn');
+                if (cancelBtn) {
+                    cancelBtn.classList.add('cancel-btn');
+                }
+            });
+            
             setupFormListeners();
             if (callback) callback();
         })
@@ -1642,39 +1901,44 @@ function createCitationElement(citation, userVote) {
             `<a href="https://youtube.com/@${citation.username.replace('@', '')}" target="_blank" class="username-link">${citation.username}</a>`;
         
         citationElement.innerHTML = `
-            <p><strong>Title:</strong> ${citation.citationTitle}</p>
-            <p><strong>Time Range:</strong> 
-                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</a> - 
-                <a href="#" class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</a>
-            </p>
-            <p><strong>Added by:</strong> ${usernameDisplay}</p>
-            <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-            }).format(new Date(citation.dateAdded))}</p>
-            <p><strong>Description:</strong> ${citation.description}</p>
-            ${citation.source ? `<p><strong>Source:</strong> <a href="${citation.source}" target="_blank">${citation.source}</a></p>` : ''}
-            <div class="citation-controls">
-                <div class="vote-controls" data-citation-id="${citation.id}">
-                    <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
-                            title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
-                        <span class="vote-icon">▲</span>
-                    </button>
-                    <span class="vote-score">${citation.voteScore || 0}</span>
-                    <button class="vote-btn downvote-btn ${userVote === 'down' ? 'voted' : ''}" 
-                            title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
-                        <span class="vote-icon">▼</span>
-                    </button>
+            <div style="display: flex; flex-direction: column; min-height: 200px;">
+                <div class="citation-title">${citation.citationTitle}</div>
+                <div style="flex: 1; padding: 16px;">
+                    <div class="time-range">
+                        <span class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</span>
+                        <span class="time-separator">to</span>
+                        <span class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</span>
+                    </div>
+                    <div class="citation-meta">
+                        <span>${usernameDisplay}</span>
+                        <span>•</span>
+                        <span>${new Intl.DateTimeFormat('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        }).format(new Date(citation.dateAdded))}</span>
+                    </div>
+                    <div class="citation-description">${citation.description}</div>
+                    ${citation.source ? `<div class="citation-source"><a href="${citation.source}" target="_blank">${citation.source}</a></div>` : ''}
                 </div>
-                ${showDeleteButton ? `
-                    <button class="delete-citation-btn" title="Delete citation">
-                        <span class="delete-icon">🗑️</span>
-                    </button>
-                ` : ''}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px 16px;">
+                    <div class="vote-controls" data-citation-id="${citation.id}">
+                        <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
+                                title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                            <span class="vote-icon">▲</span>
+                        </button>
+                        <span class="vote-score">${citation.voteScore || 0}</span>
+                        <button class="vote-btn downvote-btn ${userVote === 'down' ? 'voted' : ''}" 
+                                title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                            <span class="vote-icon">▼</span>
+                        </button>
+                    </div>
+                    ${showDeleteButton ? `
+                        <button class="action-btn delete-btn" title="Delete citation">
+                            Delete
+                        </button>
+                    ` : ''}
+                </div>
             </div>
         `;
 
@@ -1700,7 +1964,7 @@ function createCitationElement(citation, userVote) {
 
         // Add delete button event listener if it exists
         if (showDeleteButton) {
-            const deleteBtn = citationElement.querySelector('.delete-citation-btn');
+            const deleteBtn = citationElement.querySelector('.action-btn.delete-btn');
             deleteBtn.addEventListener('click', async () => {
                 if (confirm('Are you sure you want to delete this citation? This action cannot be undone.')) {
                     try {
@@ -1754,41 +2018,70 @@ function updateCitationsList(citations, container) {
 const style = document.createElement('style');
 style.textContent = `
     #citation-controls {
-        max-height: 60vh;
+        max-height: 80vh;
         display: flex;
         flex-direction: column;
         overflow-y: auto;
+        background-color: white;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
     }
     
-    .citations-scroll-container,
+    .citations-scroll-container {
+        overflow-y: auto;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        margin-top: -8px; /* Reduce space after header */
+    }
+
+    .header-actions {
+        padding: 0 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px; /* Reduced from default */
+    }
+
+    #add-form-container {
+        padding: 12px 16px; /* Reduced top/bottom padding */
+        background-color: white;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
     #citations-container,
     #citation-requests-container {
-        overflow: visible;
+        padding: 8px 16px 16px; /* Reduced top padding */
+        overflow-y: auto;
     }
 
     .section-header {
-        font-weight: bold;
-        padding: 10px 0;
+        font-weight: 500;
+        padding: 8px 16px; /* Reduced padding */
         border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        margin-bottom: 10px;
+        margin-bottom: 12px; /* Reduced margin */
         color: #030303;
         font-size: 14px;
         background-color: #f8f8f8;
-        padding-left: 10px;
         border-radius: 4px;
     }
 
-    /* Add spacing between sections */
-    .section-header + .citation-item {
-        margin-top: 10px;
+    .citation-item:first-child {
+        margin-top: 8px; /* Add a small margin to first item */
     }
 
     .citation-item {
-        margin-bottom: 15px;
-        padding: 10px;
+        margin-bottom: 12px; /* Reduced from 16px */
         border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 4px;
+        border-radius: 8px;
         background-color: white;
+        transition: background-color 0.2s ease;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .citation-item:hover {
+        background-color: #f8f9fa;
     }
 
     .active-citation {
@@ -1796,138 +2089,170 @@ style.textContent = `
         background-color: #f8f9fa;
     }
 
-    /* Tutorial Tooltip */
-    .simple-tooltip {
-        position: absolute;
-        background: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 8px 12px;
-        border-radius: 4px;
-        font-size: 13px;
-        z-index: 10000;
-        max-width: 220px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(4px);
-    }
-
-    .simple-tooltip:after {
-        content: '';
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border: 6px solid transparent;
-        border-top-color: rgba(0, 0, 0, 0.9);
-    }
-
-    .simple-tooltip .extension-name {
-        color: #4285f4;
-        font-weight: 500;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-    
-    /* Recorded Segments Panel */
-    .recorded-segments-panel {
-        position: fixed;
-        right: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        background: transparent;
-        z-index: 9999;
-        display: flex;
-        transition: transform 0.3s ease;
-    }
-    
-    .recorded-segments-panel .toggle-btn {
-        width: 24px;
-        height: 60px;
-        background: rgba(33, 33, 33, 0.95);
-        border: none;
-        color: white;
-        cursor: pointer;
-        border-radius: 4px 0 0 4px;
+    .vote-controls {
         display: flex;
         align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        flex-shrink: 0;
-        z-index: 2;
-        position: absolute;
-        left: -24px;
-        top: 50%;
-        transform: translateY(-50%);
+        gap: 8px;
     }
-    
-    .recorded-segments-panel .panel-content {
-        background: rgba(33, 33, 33, 0.95);
-        border-radius: 4px 0 0 4px;
-        padding: 10px;
-        width: 300px;
-        max-height: 80vh;
-        overflow-y: auto;
-        color: white;
-    }
-    
-    .recorded-segments-panel.collapsed {
-        transform: translate(300px, -50%);
-    }
-    
-    .recorded-segments-panel.collapsed .toggle-btn {
-        transform: translate(0, -50%);
-    }
-    
-    .recorded-segments-panel h3 {
-        margin: 0 0 10px 0;
-        font-size: 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        padding-bottom: 5px;
-        color: #fff;
-        font-weight: 500;
-    }
-    
-    .recorded-segment {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-        padding: 8px;
-        margin-bottom: 8px;
-        font-size: 14px;
-    }
-    
-    .recorded-segment .time-range {
-        color: #fff;
-        text-decoration: none;
+
+    .vote-btn {
+        background: none;
+        border: none;
+        padding: 4px 8px;
         cursor: pointer;
-        font-weight: 500;
+        color: #606060;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
     }
-    
-    .recorded-segment .time-range:hover {
-        text-decoration: underline;
+
+    .vote-btn:hover .vote-icon {
+        color: #030303;
+    }
+
+    .vote-btn.upvote-btn .vote-icon {
+        color: #606060;
+    }
+
+    .vote-btn.downvote-btn .vote-icon {
+        color: #606060;
+    }
+
+    .vote-btn.upvote-btn:hover .vote-icon {
         color: #1a73e8;
     }
-    
-    .recorded-segment .actions {
-        margin-top: 5px;
-        display: flex;
-        gap: 5px;
+
+    .vote-btn.downvote-btn:hover .vote-icon {
+        color: #dc3545;
     }
-    
-    .recorded-segment .actions button {
-        background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        color: white;
-        padding: 3px 8px;
-        border-radius: 3px;
+
+    .vote-btn.upvote-btn.voted .vote-icon {
+        color: #1a73e8;
+    }
+
+    .vote-btn.downvote-btn.voted .vote-icon {
+        color: #dc3545;
+    }
+
+    .vote-score {
+        font-weight: 500;
+        color: #606060;
+        min-width: 20px;
+        text-align: center;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 18px;
+        font-weight: 500;
         cursor: pointer;
-        font-size: 12px;
-        flex: 1;
+        transition: all 0.2s ease;
+        color: white;
+        min-width: 100px;
+        text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
-    
-    .recorded-segment .actions button:hover {
-        background: rgba(255, 255, 255, 0.1);
+
+    .action-btn.delete-btn {
+        background-color: #dc3545;
+    }
+
+    .action-btn.respond-btn {
+        background-color: #1a73e8;
+    }
+
+    .action-btn:hover {
+        opacity: 0.9;
+    }
+
+    .add-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 18px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #1a73e8;
+        color: white;
+    }
+
+    .add-btn:hover {
+        opacity: 0.9;
+    }
+
+    .citation-title, .request-title {
+        padding: 12px 16px;
+        font-size: 16px;
+        font-weight: 500;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        color: #202124;
+    }
+
+    .time-range {
+        margin-bottom: 8px;
+        font-size: 14px;
+        color: #5f6368;
+        display: flex;
+        align-items: center;
+    }
+
+    .timestamp-link {
+        color: #1a73e8;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .timestamp-link:hover {
+        text-decoration: underline;
+    }
+
+    .time-separator {
+        margin: 0 6px;
+        color: #5f6368;
+    }
+
+    .citation-meta, .request-meta {
+        font-size: 13px;
+        color: #5f6368;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    .username-link {
+        color: #1a73e8;
+        text-decoration: none;
+    }
+
+    .username-link:hover {
+        text-decoration: underline;
+    }
+
+    .citation-description, .request-description {
+        margin-top: 12px;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #202124;
+    }
+
+    .citation-source {
+        margin-top: 12px;
+        font-size: 13px;
+    }
+
+    .citation-source a {
+        color: #1a73e8;
+        text-decoration: none;
+        word-break: break-all;
+    }
+
+    .citation-source a:hover {
+        text-decoration: underline;
     }
 `;
 document.head.appendChild(style);
@@ -1971,34 +2296,37 @@ function createRequestElement(request) {
     requestElement.dataset.requestId = request.id;
     
     requestElement.innerHTML = `
-        <p><strong>Title:</strong> ${request.title || ''}</p>
-        <p><strong>Time Range:</strong> 
-            <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampStart)}">${request.timestampStart}</a> - 
-            <a href="#" class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</a>
-        </p>
-        <p><strong>Requested by:</strong> ${request.username}</p>
-        <p><strong>Date:</strong> ${new Intl.DateTimeFormat('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        }).format(new Date(request.dateAdded))}</p>
-        <p><strong>Description:</strong> ${request.reason || ''}</p>
-        <div class="request-controls">
-            <div class="vote-controls" data-request-id="${request.id}">
-                <button class="upvote-btn ${request.userVote === 'up' ? 'voted' : ''}" title="Upvote">
-                    <span class="arrow">▲</span>
-                </button>
-                <span class="vote-score">${request.voteScore || 0}</span>
-                <button class="downvote-btn ${request.userVote === 'down' ? 'voted' : ''}" title="Downvote">
-                    <span class="arrow">▼</span>
+        <div style="display: flex; flex-direction: column; min-height: 200px;">
+            <div class="request-title">${request.title || 'Untitled Request'}</div>
+            <div style="flex: 1; padding: 16px;">
+                <div class="time-range">
+                    <span class="timestamp-link" data-time="${parseTimestamp(request.timestampStart)}">${request.timestampStart}</span>
+                    <span class="time-separator">to</span>
+                    <span class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</span>
+                </div>
+                <div class="request-meta">
+                    <span>${new Intl.DateTimeFormat('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    }).format(new Date(request.dateAdded))}</span>
+                </div>
+                <div class="request-description">${request.reason || ''}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px 16px;">
+                <div class="vote-controls" data-request-id="${request.id}">
+                    <button class="vote-btn upvote-btn ${request.userVote === 'up' ? 'voted' : ''}" title="Upvote">
+                        <span class="vote-icon">▲</span>
+                    </button>
+                    <span class="vote-score">${request.voteScore || 0}</span>
+                    <button class="vote-btn downvote-btn ${request.userVote === 'down' ? 'voted' : ''}" title="Downvote">
+                        <span class="vote-icon">▼</span>
+                    </button>
+                </div>
+                <button class="action-btn respond-btn" title="Respond with Citation" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason || ''}" data-title="${request.title || ''}">
+                    Respond
                 </button>
             </div>
-            <button class="respond-btn" title="Respond with Citation" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason || ''}" data-title="${request.title || ''}">
-                Respond
-            </button>
         </div>
     `;
 
@@ -2358,29 +2686,28 @@ function onVideoLoad() {
 function init() {
     console.log('Initializing extension...');
     
-    // Wait for player to be ready before initializing
-    const waitForPlayer = setInterval(() => {
-        const player = getPlayer();
-        if (player) {
-            clearInterval(waitForPlayer);
-            console.log('Player ready, initializing features');
-            insertCitationButtons();
-            observeTheaterMode();
-            
-            // Initialize forms if they exist
-            const citationForm = document.getElementById('citation-form');
-            if (citationForm) {
-                initializeCitationForm();
-            }
-            const requestForm = document.getElementById('request-form');
-            if (requestForm) {
-                initializeRequestForm();
-            }
-        }
-    }, 500);
+    // Clear any existing controls first to prevent duplicates
+    const existingControls = document.getElementById('citation-controls');
+    if (existingControls) {
+        console.log('Removing existing citation controls');
+        existingControls.remove();
+    }
     
-    // Clear interval after 10 seconds if player not found
-    setTimeout(() => clearInterval(waitForPlayer), 10000);
+    insertCitationButtons();
+    observeTheaterMode();
+    
+    // Initialize forms if they exist
+    const citationForm = document.getElementById('citation-form');
+    if (citationForm) {
+        initializeCitationForm();
+    }
+    const requestForm = document.getElementById('request-form');
+    if (requestForm) {
+        initializeRequestForm();
+    }
+    
+    // Ensure recorded segments panel exists
+    setupRecordedSegmentsPanel();
 }
 
 // Function to get YouTube player
@@ -2463,3 +2790,158 @@ const dropdownStyles = `
 const dropdownStyleEl = document.createElement('style');
 dropdownStyleEl.textContent = dropdownStyles;
 document.head.appendChild(dropdownStyleEl);
+
+// Function to update the stored width value
+function updateStoredWidth() {
+    const secondaryElement = document.querySelector("div#secondary.style-scope.ytd-watch-flexy");
+    if (secondaryElement) {
+        storedSecondaryWidth = secondaryElement.offsetWidth;
+        
+        // Update any existing citation controls
+        const ccDiv = document.querySelector("#citation-controls");
+        if (ccDiv) {
+            ccDiv.style.width = storedSecondaryWidth + 'px';
+        }
+    }
+}
+
+// Call updateStoredWidth on window resize for additional reliability
+window.addEventListener('resize', updateStoredWidth);
+
+// Add CSS for the recorded segments panel
+const recordedSegmentsStyle = document.createElement('style');
+recordedSegmentsStyle.textContent = `
+    .recorded-segments-panel {
+        position: fixed;
+        top: 20%;
+        right: 0;
+        background-color: white;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px 0 0 4px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 2000;
+        transition: transform 0.3s ease;
+        width: 460px;
+        max-width: 95%;
+        display: flex;
+        overflow: visible; /* Changed from hidden to allow button to maintain size */
+    }
+    
+    .recorded-segments-panel.collapsed {
+        transform: translateX(calc(100% - 20px));
+    }
+    
+    .recorded-segments-panel .toggle-btn {
+        position: absolute;
+        left: -20px; /* Position button outside the panel */
+        top: 0;
+        transform: none;
+        background: #1a73e8;
+        color: white;
+        border: none;
+        border-radius: 4px 0 0 4px;
+        padding: 0;
+        cursor: pointer;
+        width: 20px;
+        height: 100%;
+        min-height: 40px; /* Added minimum height */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        margin: 0;
+        z-index: 1; /* Ensure button stays above other elements */
+    }
+    
+    .recorded-segments-panel .panel-content {
+        padding: 16px;
+        width: 100%;
+        margin-left: 0; /* Removed margin since button is now outside */
+        max-height: 80vh;
+        overflow-y: auto;
+        min-width: 430px;
+        border-left: none; /* Removed since button is outside */
+    }
+    
+    .recorded-segment {
+        padding: 16px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        margin-bottom: 12px;
+        background-color: #f8f9fa;
+    }
+    
+    .recorded-segment .time-range {
+        font-weight: 500;
+        margin-bottom: 8px;
+        cursor: pointer;
+        color: #1a73e8;
+    }
+    
+    .recorded-segment .time-range:hover {
+        text-decoration: underline;
+    }
+    
+    .recorded-segment .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .recorded-segment .actions button {
+        flex: 1;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        min-width: 80px;
+        white-space: nowrap;
+        font-weight: 500;
+    }
+    
+    .recorded-segment .actions .cite-btn,
+    .recorded-segment .actions .request-btn {
+        background-color: #1a73e8;
+        color: white;
+    }
+    
+    .recorded-segment .actions .delete-btn {
+        background-color: #ea4335;
+        color: white;
+    }
+`;
+document.head.appendChild(recordedSegmentsStyle);
+
+// Fix and ensure the record functionality works correctly
+function ensureRecordingFeatureWorks() {
+    console.log('Ensuring recording feature is working correctly...');
+    
+    // Make sure the record button is setup properly
+    setupRecordButtons();
+    
+    // If the record button is missing, retry after a delay
+    const checkRecordButton = setInterval(() => {
+        const recordBtn = document.querySelector('.record-start-btn');
+        if (!recordBtn) {
+            console.log('Record button not found, recreating...');
+            setupRecordButtons();
+        } else {
+            console.log('Record button found, clearing interval');
+            clearInterval(checkRecordButton);
+        }
+    }, 2000);
+    
+    // Clear the interval after 20 seconds to avoid infinite checking
+    setTimeout(() => clearInterval(checkRecordButton), 20000);
+}
+
+// Call this function when the page loads and after navigation
+window.addEventListener('yt-navigate-finish', () => {
+    setTimeout(ensureRecordingFeatureWorks, 1500);
+});
+
+// Also run on initial page load
+if (location.href.includes('youtube.com/watch')) {
+    setTimeout(ensureRecordingFeatureWorks, 1500);
+}

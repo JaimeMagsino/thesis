@@ -3,9 +3,17 @@
     "name": "YouTube Citation Extension",
     "version": "1.0",
     "description": "Add and manage citations for YouTube videos",
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icon16.png",
+            "48": "icon48.png"
+        }
+    },
     "permissions": [
         "activeTab",
-        "storage"
+        "storage",
+        "tabs"
     ],
     "host_permissions": [
         "https://firestore.googleapis.com/*",
@@ -27,7 +35,9 @@
             "youtube_extension_citation.html",
             "youtube_extension_request.html",
             "youtube_extension_style.css",
-            "config.js"
+            "config.js",
+            "popup.js",
+            "popup.html"
         ],
         "matches": ["*://www.youtube.com/*"]
     }]
