@@ -1372,7 +1372,6 @@ async function loadCitations() {
             container.innerHTML = '<p>Error loading citations. Please try again later.</p>';
         }
     }
-    loadCitationRequests();
 }
 
 // Helper function to update citations list
@@ -1524,14 +1523,7 @@ function seekToTime(seconds) {
     }
 }
 
-// Update citation requests and citations periodically with longer interval
-setInterval(() => {
-    const videoId = new URLSearchParams(window.location.search).get('v');
-    if (videoId) {
-        loadCitationRequests();
-        loadCitations();
-    }
-}, 30000); // Updates every 30 seconds instead of 5 seconds
+
 
 // Cache for current data to prevent unnecessary updates
 let currentCitations = [];
@@ -1763,12 +1755,6 @@ async function handleVote(itemId, voteType, itemType = 'citation') {
 
     } catch (error) {
         console.error(`Error updating ${itemType} vote:`, error);
-        // On error, refresh the full list to ensure consistency
-        if (itemType === 'citation') {
-            loadCitations();
-        } else {
-            loadCitationRequests();
-        }
     }
 }
 
