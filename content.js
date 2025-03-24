@@ -64,7 +64,6 @@ function waitForDependencies() {
     // Clear interval after 30 seconds to prevent infinite checking
     setTimeout(() => {
         clearInterval(checkPage);
-        console.warn('Timed out waiting for YouTube page dependencies');
     }, 30000);
 }
 
@@ -2822,57 +2821,51 @@ recordedSegmentsStyle.textContent = `
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         z-index: 2000;
         transition: transform 0.3s ease;
-        width: 260px;
-        max-width: 90%;
+        width: 460px;
+        max-width: 95%;
         display: flex;
+        overflow: hidden; /* Added to prevent button overflow */
     }
     
     .recorded-segments-panel.collapsed {
-        transform: translateX(calc(100% - 30px));
+        transform: translateX(calc(100% - 20px)); /* Reduced from 30px to 20px to match button width */
     }
     
     .recorded-segments-panel .toggle-btn {
         position: absolute;
         left: 0;
-        top: 50%;
-        transform: translateY(-50%);
+        top: 0;
+        transform: none;
         background: #1a73e8;
         color: white;
         border: none;
         border-radius: 4px 0 0 4px;
-        padding: 8px;
+        padding: 0;
         cursor: pointer;
-        width: 30px;
-        height: 60px;
+        width: 20px;
+        height: 100%; /* Make button fill the entire height */
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 14px;
+        font-size: 12px;
+        margin: 0;
     }
     
     .recorded-segments-panel .panel-content {
-        padding: 12px;
+        padding: 16px;
         width: 100%;
-        margin-left: 30px;
+        margin-left: 20px;
         max-height: 80vh;
         overflow-y: auto;
-    }
-    
-    .recorded-segments-panel h3 {
-        margin-top: 0;
-        margin-bottom: 12px;
-        font-size: 16px;
-        font-weight: 500;
-        color: #202124;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        padding-bottom: 8px;
+        min-width: 430px;
+        border-left: 1px solid rgba(0, 0, 0, 0.1); /* Added to separate content from button */
     }
     
     .recorded-segment {
-        padding: 10px;
+        padding: 16px;
         border: 1px solid rgba(0, 0, 0, 0.1);
         border-radius: 4px;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
         background-color: #f8f9fa;
     }
     
@@ -2890,38 +2883,30 @@ recordedSegmentsStyle.textContent = `
     .recorded-segment .actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 8px;
     }
     
     .recorded-segment .actions button {
         flex: 1;
-        padding: 6px 12px;
+        padding: 8px 16px;
         border: none;
         border-radius: 4px;
-        font-size: 12px;
+        font-size: 13px;
         cursor: pointer;
-        min-width: 0;
+        min-width: 80px;
         white-space: nowrap;
         font-weight: 500;
     }
     
-    .recorded-segment .actions .cite-btn {
-        background-color: #1a73e8;
-        color: white;
-    }
-    
+    .recorded-segment .actions .cite-btn,
     .recorded-segment .actions .request-btn {
-        background-color: #34a853;
+        background-color: #1a73e8;
         color: white;
     }
     
     .recorded-segment .actions .delete-btn {
         background-color: #ea4335;
         color: white;
-    }
-    
-    .recorded-segment .actions button:hover {
-        opacity: 0.9;
     }
 `;
 document.head.appendChild(recordedSegmentsStyle);
