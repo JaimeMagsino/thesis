@@ -403,7 +403,7 @@ function setupRecordButtons() {
     // Create start record button
     const startRecordBtn = document.createElement('button');
     startRecordBtn.className = 'ytp-button record-start-btn';
-    startRecordBtn.title = 'Start Recording Timestamp for Citation';
+    startRecordBtn.title = 'Start Citation Segment';
     startRecordBtn.innerHTML = `
         <div class="citation-record-btn">
             <svg height="100%" viewBox="0 0 36 36" width="100%">
@@ -417,7 +417,7 @@ function setupRecordButtons() {
     // Create end record button (initially hidden)
     const endRecordBtn = document.createElement('button');
     endRecordBtn.className = 'ytp-button record-end-btn';
-    endRecordBtn.title = 'End Recording Timestamp for Citation';
+    endRecordBtn.title = 'End Citation Segment';
     endRecordBtn.style.display = 'none';
     endRecordBtn.innerHTML = `
         <div class="citation-record-btn">
@@ -473,7 +473,7 @@ function setupRecordedSegmentsPanel() {
         panel.innerHTML = `
             <button class="toggle-btn">◀</button>
             <div class="panel-content">
-                <h3>Recorded Segments</h3>
+                <h3>Citation Segments</h3>
                 <div class="segments-container"></div>
             </div>
         `;
@@ -2524,7 +2524,7 @@ function showSimpleTooltip() {
             tooltip.className = 'simple-tooltip';
             tooltip.innerHTML = `
                 <span class="extension-name">Citation Tool:</span> 
-                Click to record important video segments
+                Click to start creating citation segments.
             `;
             
             // Add to page first so we can get dimensions
