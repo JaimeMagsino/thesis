@@ -1,13 +1,13 @@
 // Firebase configuration
 const config = {
     firebase: {
-        apiKey: "AIzaSyD7UiUtB-Iwjnk4GsOuFbnkJKQljmoeCi4",
-        authDomain: "thesis-proj-extra-space.firebaseapp.com",
-        projectId: "thesis-proj-extra-space",
-        storageBucket: "thesis-proj-extra-space.firebasestorage.app",
-        messagingSenderId: "334949558669",
-        appId: "1:334949558669:web:bd901b6d7b3f3df74035c4",
-        measurementId: "G-RSB4MG1G0Q"
+        apiKey: "AIzaSyCIDK7Cgkowx_nRKKFLbIq-ZJAE02ARwdQ",
+        authDomain: "thesis-yt-ext.firebaseapp.com",
+        databaseURL: "https://thesis-yt-ext-default-rtdb.firebaseio.com",
+        projectId: "thesis-yt-ext",
+        storageBucket: "thesis-yt-ext.firebasestorage.app",
+        messagingSenderId: "270194258853",
+        appId: "1:270194258853:web:3e100e51c753ab669c6e4c"
     }
 };
 
