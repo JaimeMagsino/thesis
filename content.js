@@ -1919,11 +1919,16 @@ function createCitationElement(citation, userVote) {
                             <span class="vote-icon">▼</span>
                         </button>
                     </div>
-                    ${showDeleteButton ? `
-                        <button class="action-btn delete-btn" title="Delete citation">
-                            Delete
+                    <div class="action-buttons">
+                        ${showDeleteButton ? `
+                            <button class="action-btn delete-btn" title="Delete citation">
+                                Delete
+                            </button>
+                        ` : ''}
+                        <button class="action-btn report-btn" title="Report citation">
+                            Report
                         </button>
-                    ` : ''}
+                    </div>
                 </div>
             </div>
         `;
@@ -1961,9 +1966,7 @@ function createCitationElement(citation, userVote) {
                         });
 
                         if (response.success) {
-                            // Remove the citation element from the DOM
                             citationElement.remove();
-                            // Refresh the citations list
                             loadCitations();
                         } else {
                             throw new Error(response.error);
@@ -1975,6 +1978,12 @@ function createCitationElement(citation, userVote) {
                 }
             });
         }
+
+        // Add report button event listener
+        const reportBtn = citationElement.querySelector('.action-btn.report-btn');
+        reportBtn.addEventListener('click', () => {
+            showReportDialog(citation.id, 'citation');
+        });
     });
 
     return citationElement;
@@ -2311,9 +2320,14 @@ function createRequestElement(request) {
                         <span class="vote-icon">▼</span>
                     </button>
                 </div>
-                <button class="action-btn respond-btn" title="Respond with Citation" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason || ''}" data-title="${request.title || ''}">
-                    Respond
-                </button>
+                <div class="action-buttons" style="display: flex; align-items: center; gap: 8px;">
+                    <button class="action-btn respond-btn" title="Respond with Citation" data-start="${request.timestampStart}" data-end="${request.timestampEnd}" data-reason="${request.reason || ''}" data-title="${request.title || ''}">
+                        Respond
+                    </button>
+                    <button class="action-btn report-btn" title="Report request" style="height: 36px; line-height: 36px; display: flex; align-items: center;">
+                        Report
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -2334,6 +2348,7 @@ function createRequestElement(request) {
     const upvoteBtn = requestElement.querySelector('.upvote-btn');
     const downvoteBtn = requestElement.querySelector('.downvote-btn');
     const respondBtn = requestElement.querySelector('.respond-btn');
+    const reportBtn = requestElement.querySelector('.report-btn');
 
     upvoteBtn.addEventListener('click', () => handleVote(request.id, 'up', 'request'));
     downvoteBtn.addEventListener('click', () => handleVote(request.id, 'down', 'request'));
@@ -2346,6 +2361,9 @@ function createRequestElement(request) {
             `Response to request: ${button.dataset.reason || ''}`,
             button.dataset.title || ''
         );
+    });
+    reportBtn.addEventListener('click', () => {
+        showReportDialog(request.id, 'request');
     });
 
     return requestElement;
@@ -2932,4 +2950,171 @@ window.addEventListener('yt-navigate-finish', () => {
 // Also run on initial page load
 if (location.href.includes('youtube.com/watch')) {
     setTimeout(ensureRecordingFeatureWorks, 1500);
+}
+
+// Add report dialog styles
+const reportDialogStyles = `
+    .report-dialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        width: 400px;
+        max-width: 90vw;
+    }
+
+    .report-dialog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+    }
+
+    .report-dialog h3 {
+        margin: 0 0 16px;
+        color: #202124;
+        font-size: 18px;
+    }
+
+    .report-dialog select,
+    .report-dialog textarea {
+        width: 100%;
+        padding: 8px 12px;
+        margin-bottom: 16px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .report-dialog textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .report-dialog-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .report-dialog-buttons button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+    .report-dialog-buttons .cancel-btn {
+        background: #f1f3f4;
+        color: #202124;
+    }
+
+    .report-dialog-buttons .submit-btn {
+        background: #1a73e8;
+        color: white;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+
+    .action-btn.report-btn {
+        background-color: #ea4335;
+    }
+`;
+
+// Add the styles to the page
+const reportStyleEl = document.createElement('style');
+reportStyleEl.textContent = reportDialogStyles;
+document.head.appendChild(reportStyleEl);
+
+// Function to show report dialog
+function showReportDialog(itemId, itemType) {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'report-dialog-overlay';
+    
+    // Create dialog
+    const dialog = document.createElement('div');
+    dialog.className = 'report-dialog';
+    dialog.innerHTML = `
+        <h3>Report ${itemType === 'citation' ? 'Citation' : 'Request'}</h3>
+        <select id="report-reason" required>
+            <option value="">Select a reason</option>
+            <option value="inappropriate_content">Inappropriate Content</option>
+            <option value="spam">Spam</option>
+            <option value="misinformation">Misinformation</option>
+            <option value="harassment">Harassment</option>
+            <option value="other">Other</option>
+        </select>
+        <textarea id="report-details" placeholder="Please provide additional details (optional)"></textarea>
+        <div class="report-dialog-buttons">
+            <button class="cancel-btn">Cancel</button>
+            <button class="submit-btn">Submit Report</button>
+        </div>
+    `;
+    
+    // Add to page
+    document.body.appendChild(overlay);
+    document.body.appendChild(dialog);
+    
+    // Handle cancel
+    const cancelBtn = dialog.querySelector('.cancel-btn');
+    cancelBtn.addEventListener('click', () => {
+        overlay.remove();
+        dialog.remove();
+    });
+    
+    // Handle submit
+    const submitBtn = dialog.querySelector('.submit-btn');
+    submitBtn.addEventListener('click', async () => {
+        const reason = dialog.querySelector('#report-reason').value;
+        const details = dialog.querySelector('#report-details').value;
+        
+        if (!reason) {
+            alert('Please select a reason for reporting');
+            return;
+        }
+        
+        try {
+            const videoId = new URLSearchParams(window.location.search).get('v');
+            const response = await chrome.runtime.sendMessage({
+                type: 'reportItem',
+                data: {
+                    videoId,
+                    itemId,
+                    itemType,
+                    reason,
+                    additionalInfo: details
+                }
+            });
+            
+            if (response.success) {
+                alert('Report submitted successfully');
+                overlay.remove();
+                dialog.remove();
+            } else {
+                throw new Error(response.error);
+            }
+        } catch (error) {
+            console.error('Error submitting report:', error);
+            alert('Failed to submit report. Please try again.');
+        }
+    });
+    
+    // Close on overlay click
+    overlay.addEventListener('click', () => {
+        overlay.remove();
+        dialog.remove();
+    });
 }

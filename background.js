@@ -12,6 +12,8 @@ async function firestoreRequest(collection, docId = null, method = 'GET', data =
     }
     url += `?key=${config.firebase.apiKey}`;
 
+    console.log('Making Firestore request:', { url, method, data });
+
     const options = {
         method,
         headers: {
@@ -53,16 +55,30 @@ async function firestoreRequest(collection, docId = null, method = 'GET', data =
         }
 
         options.body = JSON.stringify(firestoreData);
+        console.log('Request body:', options.body);
     }
 
-    console.log('Making Firestore request:', { url, method, data });
-    const response = await fetch(url, options);
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Firestore request failed:', errorText);
-        throw new Error(`Firestore request failed: ${errorText}`);
+    try {
+        const response = await fetch(url, options);
+        const responseText = await response.text();
+        
+        if (!response.ok) {
+            console.error('Firestore request failed:', {
+                status: response.status,
+                statusText: response.statusText,
+                response: responseText
+            });
+            throw new Error(`Firestore request failed: ${responseText}`);
+        }
+
+        // Parse the response text as JSON
+        const responseData = responseText ? JSON.parse(responseText) : {};
+        console.log('Firestore response:', responseData);
+        return responseData;
+    } catch (error) {
+        console.error('Error in firestoreRequest:', error);
+        throw error;
     }
-    return response.json();
 }
 
 // Helper function to convert Firestore response to regular object
@@ -212,6 +228,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .then(result => sendResponse(result))
             .catch(error => sendResponse({ success: false, error: error.message }));
         return true; // Will respond asynchronously
+    }
+    if (request.type === 'reportItem') {
+        handleReportItem(request.data)
+            .then(response => sendResponse(response))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true; // Keep the message channel open for async response
     }
 });
 
@@ -489,6 +511,53 @@ async function handleDeleteCitation(citationId, videoId) {
         return { success: true };
     } catch (error) {
         console.error('Error deleting citation:', error);
+        throw error;
+    }
+}
+
+// Function to handle report submission
+async function handleReportItem(data) {
+    console.log('Handling report:', data);
+    
+    // Validate required fields
+    if (!data.videoId || !data.itemId || !data.itemType || !data.reason) {
+        throw new Error('Missing required fields for report');
+    }
+    
+    try {
+        // Create report object
+        const report = {
+            videoId: data.videoId,
+            itemId: data.itemId,
+            itemType: data.itemType,
+            reason: data.reason,
+            additionalInfo: data.additionalInfo || '',
+            timestamp: new Date().toISOString(),
+            status: 'pending' // Initial status
+        };
+        
+        // Add report to Firestore in the reports collection
+        // Note: We need to use the full collection path and ensure proper document creation
+        const collectionPath = `reports_${data.videoId}`;
+        console.log('Submitting report to collection:', collectionPath);
+        
+        const response = await firestoreRequest(collectionPath, null, 'POST', report);
+        
+        if (response.error) {
+            console.error('Firestore error:', response.error);
+            throw new Error(response.error);
+        }
+        
+        // Log the full response for debugging
+        console.log('Full Firestore response:', response);
+        
+        // Extract the document ID from the response
+        const docId = response.name ? response.name.split('/').pop() : null;
+        console.log('Created report with ID:', docId);
+        
+        return { success: true, reportId: docId };
+    } catch (error) {
+        console.error('Error submitting report:', error);
         throw error;
     }
 }
