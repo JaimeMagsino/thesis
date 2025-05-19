@@ -409,7 +409,6 @@ function setupRecordButtons() {
             <svg height="100%" viewBox="0 0 36 36" width="100%">
                 <rect x="8" y="8" width="20" height="20" rx="2" fill="none" stroke="#ff0000" stroke-width="2"/>
                 <circle cx="18" cy="18" r="6" fill="#ff0000"/>
-                <text x="4" y="35" font-size="8" fill="#ff0000">CITE</text>
             </svg>
         </div>
     `;
@@ -424,7 +423,6 @@ function setupRecordButtons() {
             <svg height="100%" viewBox="0 0 36 36" width="100%">
                 <rect x="8" y="8" width="20" height="20" rx="2" fill="none" stroke="#ff0000" stroke-width="2"/>
                 <path d="M 14 14 L 22 22 M 14 22 L 22 14" stroke="#ff0000" stroke-width="2"/>
-                <text x="4" y="35" font-size="8" fill="#ff0000">STOP</text>
             </svg>
         </div>
     `;
