@@ -1087,6 +1087,11 @@ async function setupFormListeners() {
                     throw new Error('Could not determine video duration. Please try again.');
                 }
 
+                // Get YouTube username
+                const username = await getYouTubeUsername();
+                if (!username) {
+                    throw new Error('Could not retrieve YouTube username. Please make sure you are logged in.');
+                } 
                 // Validate timestamps
                 const startTime = requestForm.timestampStart.value;
                 const endTime = requestForm.timestampEnd.value;
@@ -1098,7 +1103,7 @@ async function setupFormListeners() {
                     timestampStart: startTime,
                     timestampEnd: endTime,
                     reason: requestForm.reason.value.trim(),
-                    username: 'Anonymous', // Always set to Anonymous for requests
+                    username: username, // Always set to Anonymous for requests
                     dateAdded: new Date().toISOString(),
                     voteScore: 0
                 };
@@ -2288,6 +2293,8 @@ function createRequestElement(request) {
                     <span class="timestamp-link" data-time="${parseTimestamp(request.timestampEnd)}">${request.timestampEnd}</span>
                 </div>
                 <div class="request-meta">
+                    <span><a href="https://youtube.com/@${request.username.replace('@', '')}" target="_blank" class="username-link">${request.username}</a></span>
+                    <span>•</span>
                     <span>${new Intl.DateTimeFormat('en-US', {
                         year: 'numeric',
                         month: 'short',
