@@ -152,8 +152,8 @@ function insertCitationButtons() {
                 <span class="toggle-icon">▼</span>
             </button>
             <div class="button-container">
-                <button id="citation-requests-btn">Citation Requests</button>
-                <button id="citations-btn">Citations</button>
+                <button id="citation-requests-btn" style="display: none;">Citation Requests</button>
+                <button id="citations-btn"></button>
             </div>
         </div>
         <div id="extension-content" class="extension-content">
@@ -428,8 +428,8 @@ function setupRecordButtons() {
     `;
 
     // Insert buttons right after the timestamp
-    timestamp.insertAdjacentElement('afterend', startRecordBtn);
-    timestamp.insertAdjacentElement('afterend', endRecordBtn);
+    // timestamp.insertAdjacentElement('afterend', startRecordBtn);
+    // timestamp.insertAdjacentElement('afterend', endRecordBtn);
     
     console.log('Record buttons added to player controls');
 
@@ -1907,7 +1907,7 @@ function createCitationElement(citation, userVote) {
                     <div class="citation-description">${citation.description}</div>
                     ${citation.source ? `<div class="citation-source"><a href="${citation.source}" target="_blank">${citation.source}</a></div>` : ''}
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px 16px;">
+                <div style="display: none; justify-content: space-between; align-items: center; padding: 0 16px 16px;">
                     <div class="vote-controls" data-citation-id="${citation.id}">
                         <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
                                 title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
