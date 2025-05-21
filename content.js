@@ -1308,7 +1308,7 @@ async function loadCitations() {
                 const isHighlighted = currentTime >= start && currentTime <= end;
                 
                 if (isHighlighted) {
-                    highlighted.push(item);
+                    // highlighted.push(item);
                 } else {
                     normal.push(item);
                 }
@@ -1333,7 +1333,7 @@ async function loadCitations() {
                 const normalHeader = document.createElement('div');
                 normalHeader.className = 'section-header';
                 normalHeader.textContent = 'Other Citations';
-                container.appendChild(normalHeader);
+                // container.appendChild(normalHeader);
                 normal.forEach(item => container.appendChild(item));
             }
 
@@ -1342,7 +1342,7 @@ async function loadCitations() {
 
             // Update highlighting after a short delay to ensure smooth transition
             requestAnimationFrame(() => {
-                updateHighlighting();
+                // updateHighlighting();
             });
         }
 
@@ -1420,7 +1420,7 @@ function updateCitationsList(citations, container) {
     // Clear and update container
     container.innerHTML = '';
     container.appendChild(fragment);
-    updateHighlighting();
+    // updateHighlighting();
 }
 
 // Debounce function to limit the frequency of updates
@@ -1467,7 +1467,7 @@ function setupTimeTracking() {
         if (newTime !== lastTime) {
             lastTime = newTime;
             currentTime = newTime;
-            requestAnimationFrame(updateHighlighting);
+            // requestAnimationFrame(updateHighlighting);
         }
         requestAnimationFrame(checkTime);
     };
@@ -2244,7 +2244,7 @@ style.textContent = `
 document.head.appendChild(style);
 
 // Update highlighting every second
-setInterval(updateHighlighting, 1000);
+// setInterval(updateHighlighting, 1000);
 
 // Function to update the requests list
 function updateRequestsList(requests, container) {
@@ -2460,7 +2460,7 @@ function updateHighlighting() {
                 container.appendChild(document.createElement('br'));
                 // Use appropriate header text based on container type
                 const headerText = container === citationsContainer ? 'Other Citations' : 'Other Requests';
-                container.appendChild(createSectionHeader(headerText));
+                // container.appendChild(createSectionHeader(headerText));
                 normal.forEach(item => container.appendChild(item));
             } else if (normal.length > 0) {
                 // If there are only non-highlighted items, add them without a header
