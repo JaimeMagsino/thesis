@@ -4,7 +4,7 @@ A Chrome extension for adding and managing citations on YouTube videos.
 
 ## Installation
 
-1. Clone this repository
+1. Clone this repository / Download zip
 2. Open Chrome and go to `chrome://extensions/`
 3. Enable Developer Mode
 4. Click "Load unpacked" and select the cloned repository folder
