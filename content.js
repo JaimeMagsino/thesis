@@ -799,7 +799,6 @@ function init() {
 // Function to initialize citation form
 async function initializeCitationForm() {
     console.log('Initializing citation form...');
-    await setupAnonymousCheckbox();
     
     // Re-check if the form exists after async operation
     const form = document.getElementById('citation-form');
@@ -1027,15 +1026,16 @@ async function setupFormListeners() {
                     throw new Error('Could not determine video duration. Please try again.');
                 }
 
+                // Get YouTube username - require login
+                const username = await getYouTubeUsername();
+                if (!username) {
+                    throw new Error('You must be logged in to submit a citation. Please log in to your YouTube account.');
+                }
+
                 // Validate timestamps
                 const startTime = form.timestampStart.value;
                 const endTime = form.timestampEnd.value;
                 const { startSeconds, endSeconds } = validateTimestamps(startTime, endTime, videoDuration);
-                
-                // Get username based on checkbox state
-                const username = await getYouTubeUsername();
-                const anonymousCheckbox = document.getElementById('anonymous');
-                const isAnonymous = !username || (anonymousCheckbox && anonymousCheckbox.checked);
                 
                 const citationData = {
                     videoId,
@@ -1044,7 +1044,7 @@ async function setupFormListeners() {
                     timestampEnd: endTime,
                     description: form.description.value.trim(),
                     source: form.source.value.trim(),
-                    username: isAnonymous ? 'Anonymous' : username,
+                    username: username,
                     dateAdded: new Date().toISOString()
                 };
 
