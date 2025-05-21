@@ -162,7 +162,7 @@ function insertCitationButtons() {
             </div>
             <div class="header-actions">
                 <button id="add-item-btn" class="add-btn">+ Add Citation</button>
-                <div class="sort-container">
+                <div class="sort-container" style="display: none;">
                     <button class="sort-button">
                         <span class="sort-icon">
                             <svg viewBox="0 0 24 24" width="24" height="24">
