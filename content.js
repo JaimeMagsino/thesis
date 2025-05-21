@@ -1671,6 +1671,13 @@ async function handleVote(itemId, voteType, itemType = 'citation') {
             throw new Error('Video ID not found');
         }
 
+        // Check if user is logged in
+        const username = await getYouTubeUsername();
+        if (!username) {
+            alert('You must be logged in to vote. Please log in to your YouTube account.');
+            return;
+        }
+
         // Get current vote state from UI
         const voteControls = document.querySelector(`[data-${itemType}-id="${itemId}"]`);
         if (!voteControls) return;
