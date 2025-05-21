@@ -3046,7 +3046,14 @@ reportStyleEl.textContent = reportDialogStyles;
 document.head.appendChild(reportStyleEl);
 
 // Function to show report dialog
-function showReportDialog(itemId, itemType) {
+async function showReportDialog(itemId, itemType) {
+    // Check if user is logged in first
+    const username = await getYouTubeUsername();
+    if (!username) {
+        alert('You must be logged in to report. Please log in to your YouTube account.');
+        return;
+    }
+
     // Create overlay
     const overlay = document.createElement('div');
     overlay.className = 'report-dialog-overlay';
@@ -3102,7 +3109,8 @@ function showReportDialog(itemId, itemType) {
                     itemId,
                     itemType,
                     reason,
-                    additionalInfo: details
+                    additionalInfo: details,
+                    username: username // Include the username in the report
                 }
             });
             
