@@ -1895,7 +1895,7 @@ function createCitationElement(citation, userVote) {
                         <span class="time-separator">to</span>
                         <span class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</span>
                     </div>
-                    <div class="citation-meta">
+                    <div class="citation-meta" style="display: none;">
                         <span>${usernameDisplay}</span>
                         <span>•</span>
                         <span>${new Intl.DateTimeFormat('en-US', {
