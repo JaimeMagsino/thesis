@@ -393,6 +393,14 @@ h3 {
     min-width: auto;
 }
 
+#add-citation-btn-header {
+    width: fit-content;
+    position: absolute;
+    right: 0;
+      /* margin-left: 25px; */
+    white-space: nowrap;
+}
+
 /* Action buttons */
 .add-btn,
 .action-btn {

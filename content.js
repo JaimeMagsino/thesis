@@ -153,11 +153,12 @@ function insertCitationButtons() {
             </button>
             <div class="button-container">
                 <button id="citation-requests-btn" style="display: none;">Citation Requests</button>
-                <button id="citations-btn"></button>
+                <button id="citations-btn">Citations</button>
             </div>
+            <button id="add-citation-btn-header" class="add-btn" style="display: none;">+ Add Citation</button>
         </div>
         <div id="extension-content" class="extension-content">
-            <div id="citation-title-container" class="header-container">
+            <div id="citation-title-container" class="header-container" style="display: none;">
                 <h3 id="citation-title" class="section-title">Citations</h3>
             </div>
             <div class="header-actions">
@@ -219,10 +220,23 @@ function insertCitationButtons() {
     const toggleBtn = document.getElementById('toggle-extension');
     const extensionContent = document.getElementById('extension-content');
     const toggleIcon = toggleBtn.querySelector('.toggle-icon');
+    const buttonContainer = document.querySelector(".button-container");
+    const addCitationBtnHeader = document.getElementById('add-citation-btn-header');
     
     toggleBtn.addEventListener('click', () => {
         extensionContent.style.display = extensionContent.style.display === 'none' ? 'block' : 'none';
         toggleIcon.textContent = extensionContent.style.display === 'none' ? '▶' : '▼';
+        buttonContainer.style.width = extensionContent.style.display === 'none' ? 'fit-content' : '100%';
+        addCitationBtnHeader.style.display = extensionContent.style.display === 'none' ? 'block' : 'none';
+    });
+
+    addCitationBtnHeader.addEventListener('click', () => {
+        toggleBtn.click();
+        const formContainer = document.getElementById('add-form-container');
+        if (formContainer.style.display === 'none') {
+            const addCitationBtnActual = document.getElementById('add-item-btn');
+            addCitationBtnActual.click();
+        }
     });
 
     // Set initial state and load citations
