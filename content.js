@@ -153,7 +153,7 @@ function insertCitationButtons() {
             </button>
             <div class="button-container">
                 <button id="citation-requests-btn" style="display: none;">Citation Requests</button>
-                <button id="citations-btn">Citations</button>
+                <button id="citations-btn">Citations <span class="citation-count"></span></button>
             </div>
             <button id="add-citation-btn-header" class="add-btn" style="display: none;">+ Add Citation</button>
         </div>
@@ -1286,6 +1286,12 @@ async function loadCitations() {
 
         const citations = citationsResponse.citations || [];
         userVotes = votesResponse.success ? votesResponse.votes : {};
+        
+        // Update the citation counter
+        const citationCount = document.querySelector('.citation-count');
+        if (citationCount) {
+            citationCount.textContent = citations.length;
+        }
         
         // Sort the citations before updating the DOM
         const sortedCitations = sortItems(citations, currentSortOption, 'citation');
@@ -2947,3 +2953,23 @@ window.addEventListener('yt-navigate-finish', () => {
 if (location.href.includes('youtube.com/watch')) {
     setTimeout(ensureRecordingFeatureWorks, 1500);
 }
+
+// Add CSS for the citation counter
+const counterStyles = `
+    .citation-count {
+        background-color: #1a73e8;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 12px;
+        font-size: 12px;
+        margin-left: 6px;
+        display: inline-block;
+        min-width: 20px;
+        text-align: center;
+    }
+`;
+
+// Add the styles to the page
+const counterStyleEl = document.createElement('style');
+counterStyleEl.textContent = counterStyles;
+document.head.appendChild(counterStyleEl);
