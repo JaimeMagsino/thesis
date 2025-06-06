@@ -2449,60 +2449,46 @@ function updateHighlighting() {
             const wasHighlighted = item.classList.contains('active-citation');
             const isHighlighted = currentTime >= start && currentTime <= end;
             
-            if (wasHighlighted !== isHighlighted) {
-                highlightStateChanged = true;
+            // Only update highlight state if not being hovered
+            if (!item.matches(':hover')) {
+                if (wasHighlighted !== isHighlighted) {
+                    highlightStateChanged = true;
+                }
+                item.classList.toggle('active-citation', isHighlighted);
             }
             
-            item.classList.toggle('active-citation', isHighlighted);
-            
-            if (isHighlighted) {
+            if (item.classList.contains('active-citation')) {
                 highlighted.push(item);
             } else {
                 normal.push(item);
             }
         });
 
-        // Only resort and update DOM if highlight state changed or first time
-        if (highlightStateChanged || !container.hasChildNodes()) {
-            const sortFunction = currentSortOption === 'upvotes' ? sortByVoteScore : sortByDate;
+        // Only resort if highlight state changed
+        if (highlightStateChanged) {
+            // Sort highlighted items by vote score
+            highlighted.sort(sortByVoteScore);
             
-            // Sort each group
-            highlighted.sort(sortFunction);
-            normal.sort(sortFunction);
-
-            // Clear and rebuild the container
+            // Sort normal items by vote score
+            normal.sort(sortByVoteScore);
+            
+            // Clear container
             container.innerHTML = '';
             
-            // Add highlighted section
+            // Add highlighted section if there are highlighted items
             if (highlighted.length > 0) {
-                const currentHeader = container === citationsContainer ? 'Current Citations' : 'Current Requests';
-                container.appendChild(createSectionHeader(currentHeader));
+                container.appendChild(createSectionHeader('Current Timestamps'));
                 highlighted.forEach(item => container.appendChild(item));
             }
-
-            // Add non-highlighted section only if there are both highlighted and non-highlighted items
-            if (normal.length > 0 && highlighted.length > 0) {
-                container.appendChild(document.createElement('br'));
-                // Use appropriate header text based on container type
-                const headerText = container === citationsContainer ? 'Other Citations' : 'Other Requests';
-                container.appendChild(createSectionHeader(headerText));
-                normal.forEach(item => container.appendChild(item));
-            } else if (normal.length > 0) {
-                // If there are only non-highlighted items, add them without a header
+            
+            // Add normal section if there are normal items
+            if (normal.length > 0) {
+                if (highlighted.length > 0) {
+                    container.appendChild(document.createElement('br'));
+                }
+                container.appendChild(createSectionHeader('Other Citations'));
                 normal.forEach(item => container.appendChild(item));
             }
-
-            // Log the sorted items for debugging
-            console.log('Sorted items:', {
-                highlighted: highlighted.map(item => ({
-                    title: item.querySelector('p:first-child')?.textContent,
-                    score: item.querySelector('.vote-score')?.textContent
-                })),
-                normal: normal.map(item => ({
-                    title: item.querySelector('p:first-child')?.textContent,
-                    score: item.querySelector('.vote-score')?.textContent
-                }))
-            });
         }
     };
 

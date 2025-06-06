@@ -590,7 +590,7 @@ h3 {
 
 .citation-item:hover,
 .citation-request:hover {
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: #f8f9fa;
 }
 
 .citation-item.active-citation,
@@ -742,9 +742,23 @@ h3 {
 
 /* Highlighting */
 .citation-item.highlighted,
-.citation-request.highlighted {
-    background-color: #e8f0fe;
-    border-left-color: #1a73e8;
+.citation-request.highlighted,
+.citation-item.active-citation,
+.citation-request.active-citation {
+    background-color: #FFFFCC;
+    border-left: 4px solid #1a73e8;
+    transition: background-color 0.2s ease;
+}
+
+.citation-item.active-citation:hover,
+.citation-request.active-citation:hover {
+    background-color: #FFFFCC !important;
+    border-left: 4px solid #1a73e8;
+}
+
+.citation-item:hover,
+.citation-request:hover {
+    background-color: #f8f9fa;
 }
 
 /* Empty state */
