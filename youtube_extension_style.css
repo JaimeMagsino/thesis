@@ -366,14 +366,22 @@ h3 {
     position: relative;
     transition: color 0.1s;
     text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.button-container button:hover {
+.button-container button:hover:not(.disabled) {
     color: #0f0f0f;
 }
 
-.button-container button.active {
+.button-container button.active:not(.disabled) {
     color: #0f0f0f;
+}
+
+.button-container button.disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
 .button-container button.active::after {
@@ -385,6 +393,22 @@ h3 {
     height: 3px;
     background-color: #0f0f0f;
     border-radius: 3px 3px 0 0;
+}
+
+.tab-counter {
+    background-color: #e0e0e0;
+    color: #606060;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+    display: inline-block;
+}
+
+.button-container button.active .tab-counter {
+    background-color: #0f0f0f;
+    color: white;
 }
 
 /* Remove old button styles */

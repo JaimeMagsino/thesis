@@ -152,8 +152,14 @@ function insertCitationButtons() {
                 <span class="toggle-icon">▼</span>
             </button>
             <div class="button-container">
-                <button id="citation-requests-btn">Citation Requests</button>
-                <button id="citations-btn">Citations</button>
+                <button id="citation-requests-btn" class="tab-btn">
+                    Citation Requests
+                    <span class="tab-counter" id="requests-counter">0</span>
+                </button>
+                <button id="citations-btn" class="tab-btn">
+                    Citations
+                    <span class="tab-counter" id="citations-counter">0</span>
+                </button>
             </div>
         </div>
         <div id="extension-content" class="extension-content">
@@ -219,10 +225,18 @@ function insertCitationButtons() {
     const toggleBtn = document.getElementById('toggle-extension');
     const extensionContent = document.getElementById('extension-content');
     const toggleIcon = toggleBtn.querySelector('.toggle-icon');
+    const tabButtons = document.querySelectorAll('.tab-btn');
     
     toggleBtn.addEventListener('click', () => {
-        extensionContent.style.display = extensionContent.style.display === 'none' ? 'block' : 'none';
-        toggleIcon.textContent = extensionContent.style.display === 'none' ? '▶' : '▼';
+        const isCollapsed = extensionContent.style.display === 'none';
+        extensionContent.style.display = isCollapsed ? 'block' : 'none';
+        toggleIcon.textContent = isCollapsed ? '▼' : '▶';
+        
+        // Update tab button states
+        tabButtons.forEach(btn => {
+            btn.style.pointerEvents = isCollapsed ? 'auto' : 'none';
+            btn.classList.toggle('disabled', !isCollapsed);
+        });
     });
 
     // Set initial state and load citations
@@ -230,10 +244,12 @@ function insertCitationButtons() {
     citationsBtn.classList.add('active');
     document.getElementById('citations-container').style.display = 'block';
     document.getElementById('citation-requests-container').style.display = 'none';
-    loadCitations(); // Load citations immediately
+    loadCitations();
 
     // Add event listeners for tab buttons
     document.getElementById('citation-requests-btn').addEventListener('click', function() {
+        if (this.classList.contains('disabled')) return;
+        
         this.classList.add('active');
         document.getElementById('citations-btn').classList.remove('active');
         document.getElementById('citation-title').textContent = 'Citation Requests';
@@ -246,6 +262,8 @@ function insertCitationButtons() {
     });
 
     document.getElementById('citations-btn').addEventListener('click', function() {
+        if (this.classList.contains('disabled')) return;
+        
         this.classList.add('active');
         document.getElementById('citation-requests-btn').classList.remove('active');
         document.getElementById('citation-title').textContent = 'Citations';
@@ -1369,6 +1387,12 @@ async function loadCitations() {
             });
         }
 
+        // Update the citations counter
+        const counter = document.getElementById('citations-counter');
+        if (counter) {
+            counter.textContent = citations.length;
+        }
+
     } catch (error) {
         console.error("Error loading citations:", error);
     }
@@ -1656,6 +1680,13 @@ async function loadCitationRequests() {
             currentRequests = sortedRequests;
             updateRequestsList(sortedRequests, container);
         }
+
+        // Update the requests counter
+        const counter = document.getElementById('requests-counter');
+        if (counter) {
+            counter.textContent = requests.length;
+        }
+
     } catch (error) {
         console.error("Error loading citation requests:", error);
         if (container.style.display === 'block') {
