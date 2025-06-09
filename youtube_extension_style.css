@@ -116,10 +116,98 @@ h3 {
 }
 
 .form-group textarea {
-    height: 80px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 15px;
+    min-height: 200px;
     resize: vertical;
-    min-height: 80px;
-    max-height: 300px;
+    line-height: 1.5;
+}
+
+.form-group textarea:focus {
+    border-color: #065fd4;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(6, 95, 212, 0.1);
+}
+
+.description-label {
+    font-size: 16px;
+    font-weight: 500;
+    color: #0f0f0f;
+    margin-bottom: 8px;
+}
+
+.original-request {
+    font-style: italic;
+    color: #0f0f0f;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 16px;
+    line-height: 1.6;
+    border-left: 4px solid #065fd4;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.original-request::before {
+    content: "Original Request:";
+    display: block;
+    font-weight: 600;
+    color: #065fd4;
+    margin-bottom: 8px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.response-section {
+    margin-top: 25px;
+}
+
+.response-label {
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #0f0f0f;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.citation-description {
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 20px 0;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.citation-description .original-request {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #ddd;
+}
+
+.citation-description .response {
+    color: #0f0f0f;
+    font-size: 16px;
+    line-height: 1.6;
+    padding-top: 15px;
+}
+
+.citation-description .response::before {
+    content: "Response:";
+    display: block;
+    font-weight: 600;
+    color: #065fd4;
+    margin-bottom: 8px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 #submit-btn,

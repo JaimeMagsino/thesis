@@ -13,6 +13,9 @@ window.respondWithCitation = function(start, end, reason, title = '') {
     loadPage("youtube_extension_citation.html", "add-form-container", () => {
         const form = document.getElementById('citation-form');
         if (form) {
+            // Set a flag on the form to indicate it's a response form
+            form.dataset.isResponseForm = 'true';
+            
             // Get form field elements
             const titleField = form.querySelector('#citationTitle');
             const startField = form.querySelector('#timestampStart');
@@ -24,15 +27,53 @@ window.respondWithCitation = function(start, end, reason, title = '') {
             if (titleField) titleField.value = title;
             if (startField) startField.value = start;
             if (endField) endField.value = end;
-            if (descriptionField) descriptionField.value = reason;
+            if (descriptionField) {
+                // Create a container for the description
+                const descriptionContainer = document.createElement('div');
+                descriptionContainer.className = 'response-section';
+                
+                // Create the read-only original request section
+                const originalRequestDiv = document.createElement('div');
+                originalRequestDiv.className = 'original-request';
+                originalRequestDiv.textContent = reason.replace('Response to request:', '').trim(); // Display only the original text
+                
+                // Create a hidden input to store the full original request string for submission
+                const originalRequestHidden = document.createElement('input');
+                originalRequestHidden.type = 'hidden';
+                originalRequestHidden.id = 'originalRequestHidden';
+                originalRequestHidden.value = reason; // Store the full prefixed string
+                
+                // Create a separator
+                const separator = document.createElement('hr');
+                separator.style.margin = '15px 0';
+                separator.style.border = 'none';
+                separator.style.borderTop = '1px solid #ddd';
+                
+                // Create the editable response section label
+                const responseLabel = document.createElement('div');
+                responseLabel.className = 'response-label';
+                responseLabel.textContent = 'Your response:';
+                
+                // Replace the original textarea with our new structure
+                descriptionField.parentNode.replaceChild(descriptionContainer, descriptionField);
+                descriptionContainer.appendChild(originalRequestDiv);
+                descriptionContainer.appendChild(originalRequestHidden); // Add hidden field
+                descriptionContainer.appendChild(separator);
+                descriptionContainer.appendChild(responseLabel);
+                descriptionContainer.appendChild(descriptionField);
+                
+                // Reset the textarea value and make it editable with normal style
+                descriptionField.value = '';
+                descriptionField.placeholder = 'Enter your response to the citation request...';
+                descriptionField.style.fontStyle = 'normal';
+                descriptionField.required = true; // Make the description field required for responses
+
+                // NO submit listener here. The main submit listener in setupFormListeners will handle it.
+            }
             if (sourceField) sourceField.value = '';
 
-            // Focus on title if empty, otherwise on description
-            if (title) {
-                descriptionField?.focus();
-            } else {
-                titleField?.focus();
-            }
+            // Focus on the response textarea
+            descriptionField?.focus();
 
             initializeCitationForm();
         }
@@ -1031,6 +1072,8 @@ function loadPage(url, containerId, callback = null) {
 
 async function setupFormListeners() {
     const form = document.getElementById('citation-form');
+    const requestForm = document.getElementById('request-form');
+
     if (form && !form.dataset.listener) {
         form.dataset.listener = "true";
         form.addEventListener('submit', async (e) => {
@@ -1055,12 +1098,28 @@ async function setupFormListeners() {
                 const endTime = form.timestampEnd.value;
                 const { startSeconds, endSeconds } = validateTimestamps(startTime, endTime, videoDuration);
                 
+                let citationDescriptionValue = '';
+
+                if (form.dataset.isResponseForm === 'true') {
+                    // This is a response to a citation request
+                    const originalRequestHidden = document.getElementById('originalRequestHidden');
+                    const originalRequestText = originalRequestHidden ? originalRequestHidden.value : '';
+                    const userActualResponse = form.description.value.trim();
+                    
+                    // Combine the original request with the user's actual response
+                    // The originalRequestText already includes the "Response to request:" prefix
+                    citationDescriptionValue = `${originalRequestText}\n\n${userActualResponse}`;
+                } else {
+                    // This is a normal citation submission
+                    citationDescriptionValue = form.description.value.trim();
+                }
+
                 const citationData = {
                     videoId,
                     citationTitle: form.citationTitle.value.trim(),
                     timestampStart: startTime,
                     timestampEnd: endTime,
-                    description: form.description.value.trim(),
+                    description: citationDescriptionValue, // Use the determined description value
                     source: form.source.value.trim(),
                     username: username,
                     dateAdded: new Date().toISOString()
@@ -1089,7 +1148,6 @@ async function setupFormListeners() {
         });
     }
 
-    const requestForm = document.getElementById('request-form');
     if (requestForm && !requestForm.dataset.listener) {
         requestForm.dataset.listener = "true";
         requestForm.addEventListener('submit', async (e) => {
@@ -1906,6 +1964,7 @@ async function initializeExtension() {
 // Call initialize only on YouTube navigation
 document.addEventListener('yt-navigate-finish', initializeExtension);
 
+// Update the createCitationElement function to properly handle response citations
 function createCitationElement(citation, userVote) {
     const citationElement = document.createElement("div");
     citationElement.className = "citation-item";
@@ -1924,7 +1983,88 @@ function createCitationElement(citation, userVote) {
             'Anonymous' : 
             `<a href="https://youtube.com/@${citation.username.replace('@', '')}" target="_blank" class="username-link">${citation.username}</a>`;
         
-        citationElement.innerHTML = `
+        // Check if this is a response to a citation request
+        const isResponse = citation.description.startsWith('Response to request:');
+        let originalRequestToDisplay = '';
+        let userResponseToDisplay = '';
+
+        if (isResponse) {
+            console.log('--- Parsing Response Citation ---');
+            console.log('Full Description:', citation.description);
+
+            const separator = '\n\n';
+            const separatorIndex = citation.description.indexOf(separator);
+
+            if (separatorIndex !== -1) {
+                // Case 1: New response citation with user-typed content (has the \n\n separator).
+                originalRequestToDisplay = citation.description.substring(0, separatorIndex).replace('Response to request:', '').trim();
+                userResponseToDisplay = citation.description.substring(separatorIndex + separator.length).trim();
+                console.log('Case: New Response (has separator)');
+            } else {
+                // Case 2: Older response citation (or new one without typed content if bypasses required).
+                // No \n\n separator found. Display original request clean, and full description in response.
+                originalRequestToDisplay = citation.description.replace('Response to request:', '').trim();
+                userResponseToDisplay = citation.description; // Display full original string for old responses
+                console.log('Case: Old Response (no separator)');
+            }
+
+            console.log('Original Request Display (extracted):', originalRequestToDisplay);
+            console.log('User Response Display (extracted):', userResponseToDisplay);
+            console.log('-----------------------------------');
+
+            citationElement.innerHTML = `
+            <div style="display: flex; flex-direction: column; min-height: 200px;">
+                <div class="citation-title">${citation.citationTitle}</div>
+                <div style="flex: 1; padding: 16px;">
+                    <div class="time-range">
+                        <span class="timestamp-link" data-time="${parseTimestamp(citation.timestampStart)}">${citation.timestampStart}</span>
+                        <span class="time-separator">to</span>
+                        <span class="timestamp-link" data-time="${parseTimestamp(citation.timestampEnd)}">${citation.timestampEnd}</span>
+                    </div>
+                    <div class="citation-meta">
+                        <span>${usernameDisplay}</span>
+                        <span>•</span>
+                        <span>${new Intl.DateTimeFormat('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        }).format(new Date(citation.dateAdded))}</span>
+                    </div>
+                    <div class="citation-description">
+                        <div class="original-request">${originalRequestToDisplay}</div>
+                        <div class="response">${userResponseToDisplay}</div>
+                    </div>
+                    ${citation.source ? `<div class="citation-source"><a href="${citation.source}" target="_blank">${citation.source}</a></div>` : ''}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 16px 16px;">
+                    <div class="vote-controls" data-citation-id="${citation.id}">
+                        <button class="vote-btn upvote-btn ${userVote === 'up' ? 'voted' : ''}" 
+                                title="${userVote === 'up' ? 'Remove upvote' : 'Upvote'}">
+                            <span class="vote-icon">▲</span>
+                        </button>
+                        <span class="vote-score">${citation.voteScore || 0}</span>
+                        <button class="vote-btn downvote-btn ${userVote === 'down' ? 'voted' : ''}" 
+                                title="${userVote === 'down' ? 'Remove downvote' : 'Downvote'}">
+                            <span class="vote-icon">▼</span>
+                        </button>
+                    </div>
+                    <div class="action-buttons">
+                        ${showDeleteButton ? `
+                            <button class="action-btn delete-btn" title="Delete citation">
+                                Delete
+                            </button>
+                        ` : ''}
+                        <button class="action-btn report-btn" title="Report citation">
+                            Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        } else {
+            // Case 3: Normal citation (not a response to a request).
+            userResponseToDisplay = citation.description; // Assign for consistency, though not used in HTML below.
+            citationElement.innerHTML = `
             <div style="display: flex; flex-direction: column; min-height: 200px;">
                 <div class="citation-title">${citation.citationTitle}</div>
                 <div style="flex: 1; padding: 16px;">
@@ -1970,6 +2110,7 @@ function createCitationElement(citation, userVote) {
                 </div>
             </div>
         `;
+        }
 
         // Add click handlers for timestamp links
         citationElement.querySelectorAll('.timestamp-link').forEach(link => {
@@ -1987,7 +2128,7 @@ function createCitationElement(citation, userVote) {
         const voteControls = citationElement.querySelector('.vote-controls');
         const upvoteBtn = voteControls.querySelector('.upvote-btn');
         const downvoteBtn = voteControls.querySelector('.downvote-btn');
-
+        
         upvoteBtn.addEventListener('click', () => handleVote(citation.id, 'up'));
         downvoteBtn.addEventListener('click', () => handleVote(citation.id, 'down'));
 
@@ -2023,7 +2164,7 @@ function createCitationElement(citation, userVote) {
             showReportDialog(citation.id, 'citation');
         });
     });
-
+    
     return citationElement;
 }
 
